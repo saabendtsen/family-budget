@@ -88,20 +88,22 @@ class TestRegistrationFlow:
         # Should show error
         expect(page.locator("text=matcher ikke")).to_be_visible()
 
-    def test_register_short_password_shows_error(self, page: Page, base_url: str):
-        """Short password should show error."""
+    def test_register_short_password_blocked_by_validation(self, page: Page, base_url: str):
+        """Short password should be blocked by HTML5 validation."""
         page.goto(f"{base_url}/budget/register")
 
         page.fill('input[name="username"]', "testuser")
         page.fill('input[name="password"]', "short")
         page.fill('input[name="password_confirm"]', "short")
-        page.click('button[type="submit"]')
 
-        # Should stay on register page with error
-        page.wait_for_load_state("networkidle")
+        # Check that password field has minlength attribute
+        password_input = page.locator('input[name="password"]')
+        expect(password_input).to_have_attribute("minlength", "6")
+
+        # Form should not submit due to HTML5 validation
+        # After clicking submit, we should still be on register page
+        page.click('button[type="submit"]')
         expect(page).to_have_url(f"{base_url}/budget/register")
-        # Error box should be visible (red background)
-        expect(page.locator(".bg-red-50")).to_be_visible()
 
 
 class TestDemoMode:
