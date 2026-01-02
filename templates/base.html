@@ -28,10 +28,19 @@
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
+    {% if demo_mode %}
+    <!-- Demo mode banner -->
+    <div class="bg-amber-500 text-amber-900 px-4 py-2 text-center text-sm font-medium">
+        <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+        Demo-tilstand (kun visning)
+        <a href="/budget/register" class="underline ml-2 hover:text-amber-800">Opret konto</a>
+    </div>
+    {% endif %}
+
     {% block content %}{% endblock %}
 
-    {% if show_nav is not defined or show_nav %}
-    <!-- Bottom Navigation -->
+    {% if (show_nav is not defined or show_nav) and not demo_mode %}
+    <!-- Bottom Navigation (hidden in demo mode) -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 safe-area-inset-bottom">
         <div class="max-w-md mx-auto flex justify-around items-center">
             <a href="/budget/" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'dashboard' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
@@ -45,6 +54,10 @@
             <a href="/budget/income" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'income' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
                 <i data-lucide="wallet" class="w-6 h-6"></i>
                 <span class="text-xs mt-1">Indkomst</span>
+            </a>
+            <a href="/budget/help" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'help' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
+                <i data-lucide="help-circle" class="w-6 h-6"></i>
+                <span class="text-xs mt-1">Hjælp</span>
             </a>
         </div>
     </nav>

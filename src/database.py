@@ -1,11 +1,31 @@
 """SQLite database operations for Family Budget."""
 
+import hashlib
+import secrets
 import sqlite3
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 
 DB_PATH = Path(__file__).parent.parent / "data" / "budget.db"
+
+
+# =============================================================================
+# Password hashing (using PBKDF2 for simplicity, no extra dependencies)
+# =============================================================================
+
+def hash_password(password: str, salt: Optional[bytes] = None) -> tuple[str, str]:
+    """Hash password with PBKDF2. Returns (hash, salt) as hex strings."""
+    if salt is None:
+        salt = secrets.token_bytes(32)
+    hashed = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
+    return hashed.hex(), salt.hex()
+
+
+def verify_password(password: str, stored_hash: str, salt: str) -> bool:
+    """Verify password against stored hash."""
+    new_hash, _ = hash_password(password, bytes.fromhex(salt))
+    return secrets.compare_digest(new_hash, stored_hash)
 
 # Pre-defined categories with icons
 DEFAULT_CATEGORIES = [
@@ -18,6 +38,36 @@ DEFAULT_CATEGORIES = [
     ("Abonnementer", "tv"),
     ("Opsparing", "piggy-bank"),
     ("Andet", "more-horizontal"),
+]
+
+# Demo data - typical Danish household budget
+DEMO_INCOME = [
+    ("Person 1", 32000),
+    ("Person 2", 28000),
+]
+
+DEMO_EXPENSES = [
+    # (name, category, amount, frequency)
+    ("Husleje/boliglån", "Bolig", 12000, "monthly"),
+    ("Ejendomsskat", "Bolig", 18000, "yearly"),
+    ("Varme", "Forbrug", 800, "monthly"),
+    ("El", "Forbrug", 600, "monthly"),
+    ("Vand", "Forbrug", 400, "monthly"),
+    ("Internet", "Forbrug", 299, "monthly"),
+    ("Bil - lån", "Transport", 2500, "monthly"),
+    ("Benzin", "Transport", 1500, "monthly"),
+    ("Vægtafgift", "Transport", 3600, "yearly"),
+    ("Bilforsikring", "Transport", 6000, "yearly"),
+    ("Institution", "Børn", 3200, "monthly"),
+    ("Fritidsaktiviteter", "Børn", 400, "monthly"),
+    ("Dagligvarer", "Mad", 6000, "monthly"),
+    ("Indboforsikring", "Forsikring", 1800, "yearly"),
+    ("Ulykkesforsikring", "Forsikring", 1200, "yearly"),
+    ("Netflix", "Abonnementer", 129, "monthly"),
+    ("Spotify", "Abonnementer", 99, "monthly"),
+    ("Fitness", "Abonnementer", 299, "monthly"),
+    ("Opsparing", "Opsparing", 3000, "monthly"),
+    ("Telefon", "Andet", 199, "monthly"),
 ]
 
 
@@ -49,6 +99,14 @@ class Category:
     id: int
     name: str
     icon: str
+
+
+@dataclass
+class User:
+    id: int
+    username: str
+    password_hash: str
+    salt: str
 
 
 def get_connection() -> sqlite3.Connection:
@@ -89,6 +147,16 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             icon TEXT
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            password_hash TEXT NOT NULL,
+            salt TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -346,6 +414,112 @@ def get_category_usage_count(category_name: str) -> int:
     count = cur.fetchone()[0]
     conn.close()
     return count
+
+
+# =============================================================================
+# User operations
+# =============================================================================
+
+def create_user(username: str, password: str) -> Optional[int]:
+    """Create a new user. Returns user ID or None if username exists."""
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Check if username already exists
+    cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+    if cur.fetchone():
+        conn.close()
+        return None
+
+    # Hash password and create user
+    password_hash, salt = hash_password(password)
+    cur.execute(
+        "INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)",
+        (username, password_hash, salt)
+    )
+    user_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return user_id
+
+
+def get_user_by_username(username: str) -> Optional[User]:
+    """Get user by username."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, username, password_hash, salt FROM users WHERE username = ?",
+        (username,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return User(**dict(row)) if row else None
+
+
+def authenticate_user(username: str, password: str) -> Optional[User]:
+    """Authenticate user. Returns User if successful, None otherwise."""
+    user = get_user_by_username(username)
+    if user and verify_password(password, user.password_hash, user.salt):
+        return user
+    return None
+
+
+def get_user_count() -> int:
+    """Get total number of registered users."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM users")
+    count = cur.fetchone()[0]
+    conn.close()
+    return count
+
+
+# =============================================================================
+# Demo data functions (returns in-memory data, not from database)
+# =============================================================================
+
+def get_demo_income() -> list[Income]:
+    """Get demo income data."""
+    return [Income(id=i+1, person=person, amount_monthly=amount)
+            for i, (person, amount) in enumerate(DEMO_INCOME)]
+
+
+def get_demo_total_income() -> float:
+    """Get total demo income."""
+    return sum(amount for _, amount in DEMO_INCOME)
+
+
+def get_demo_expenses() -> list[Expense]:
+    """Get demo expense data."""
+    return [Expense(id=i+1, name=name, category=cat, amount=amount, frequency=freq)
+            for i, (name, cat, amount, freq) in enumerate(DEMO_EXPENSES)]
+
+
+def get_demo_expenses_by_category() -> dict[str, list[Expense]]:
+    """Get demo expenses grouped by category."""
+    expenses = get_demo_expenses()
+    grouped = {}
+    for exp in expenses:
+        if exp.category not in grouped:
+            grouped[exp.category] = []
+        grouped[exp.category].append(exp)
+    return grouped
+
+
+def get_demo_category_totals() -> dict[str, float]:
+    """Get demo total monthly amount per category."""
+    expenses = get_demo_expenses()
+    totals = {}
+    for exp in expenses:
+        if exp.category not in totals:
+            totals[exp.category] = 0
+        totals[exp.category] += exp.monthly_amount
+    return totals
+
+
+def get_demo_total_expenses() -> float:
+    """Get demo total monthly expenses."""
+    return sum(exp.monthly_amount for exp in get_demo_expenses())
 
 
 # Initialize database on import

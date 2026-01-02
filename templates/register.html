@@ -1,26 +1,27 @@
 {% extends "base.html" %}
 {% set show_nav = false %}
 
-{% block title %}Login - Budget{% endblock %}
+{% block title %}Opret bruger - Budget{% endblock %}
 
 {% block content %}
 <div class="min-h-screen flex items-center justify-center px-4">
     <div class="w-full max-w-sm">
         <div class="text-center mb-8">
             <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <i data-lucide="wallet" class="w-8 h-8 text-white"></i>
+                <i data-lucide="user-plus" class="w-8 h-8 text-white"></i>
             </div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Budget</h1>
-            <p class="text-gray-500 dark:text-gray-400 mt-1">Log ind for at fortsætte</p>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Opret bruger</h1>
+            <p class="text-gray-500 dark:text-gray-400 mt-1">Opret en konto for at bruge Budget</p>
         </div>
 
-        <form method="post" action="/budget/login" class="space-y-4">
+        <form method="post" action="/budget/register" class="space-y-4">
             <div>
                 <input
                     type="text"
                     name="username"
-                    placeholder="Brugernavn"
+                    placeholder="Brugernavn (mindst 3 tegn)"
                     autocomplete="username"
+                    minlength="3"
                     class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                     autofocus
                     required
@@ -31,8 +32,21 @@
                 <input
                     type="password"
                     name="password"
-                    placeholder="Adgangskode"
-                    autocomplete="current-password"
+                    placeholder="Adgangskode (mindst 6 tegn)"
+                    autocomplete="new-password"
+                    minlength="6"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    required
+                >
+            </div>
+
+            <div>
+                <input
+                    type="password"
+                    name="password_confirm"
+                    placeholder="Bekræft adgangskode"
+                    autocomplete="new-password"
+                    minlength="6"
                     class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                     required
                 >
@@ -48,20 +62,14 @@
                 type="submit"
                 class="w-full bg-primary text-white py-3 rounded-xl font-medium hover:bg-blue-600 active:bg-blue-700 transition-colors"
             >
-                Log ind
+                Opret bruger
             </button>
         </form>
 
-        <div class="mt-6 text-center space-y-3">
+        <div class="mt-6 text-center">
             <p class="text-gray-500 dark:text-gray-400 text-sm">
-                Ingen konto?
-                <a href="/budget/register" class="text-primary hover:underline">Opret bruger</a>
-            </p>
-            <p class="text-gray-400 dark:text-gray-500 text-sm">
-                <a href="/budget/demo" class="hover:text-primary transition-colors">
-                    <i data-lucide="play-circle" class="w-4 h-4 inline mr-1"></i>
-                    Prøv demo
-                </a>
+                Har du allerede en konto?
+                <a href="/budget/login" class="text-primary hover:underline">Log ind</a>
             </p>
         </div>
     </div>

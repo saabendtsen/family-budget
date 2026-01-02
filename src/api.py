@@ -1,30 +1,76 @@
 """FastAPI application for Family Budget."""
 
+import hashlib
 import json
 import os
 import secrets
+import time
+from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import database as db
+
+
+# =============================================================================
+# Rate limiting
+# =============================================================================
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple rate limiting for login attempts."""
+
+    def __init__(self, app, max_attempts: int = 5, window_seconds: int = 300):
+        super().__init__(app)
+        self.max_attempts = max_attempts
+        self.window_seconds = window_seconds
+        self.attempts: dict[str, list[float]] = defaultdict(list)
+
+    async def dispatch(self, request: Request, call_next):
+        # Only rate limit login POST requests
+        if request.url.path == "/budget/login" and request.method == "POST":
+            client_ip = request.client.host if request.client else "unknown"
+            now = time.time()
+
+            # Clean old attempts
+            self.attempts[client_ip] = [
+                t for t in self.attempts[client_ip]
+                if now - t < self.window_seconds
+            ]
+
+            # Check if rate limited
+            if len(self.attempts[client_ip]) >= self.max_attempts:
+                return HTMLResponse(
+                    content="For mange login forsøg. Prøv igen om 5 minutter.",
+                    status_code=429
+                )
+
+            # Record this attempt
+            self.attempts[client_ip].append(now)
+
+        return await call_next(request)
 
 # Load environment
 load_dotenv(Path.home() / ".env")
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-# PIN from environment
-BUDGET_PIN = os.getenv("BUDGET_PIN", "1234")
 
 # Session management (file-based for persistence)
+# Sessions are stored as hashed tokens for security
 SESSIONS_FILE = Path(__file__).parent.parent / "data" / "sessions.json"
 
 
+def hash_token(token: str) -> str:
+    """Hash a session token for secure storage."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def load_sessions() -> set:
-    """Load sessions from file."""
+    """Load hashed sessions from file."""
     if SESSIONS_FILE.exists():
         try:
             with open(SESSIONS_FILE) as f:
@@ -35,13 +81,13 @@ def load_sessions() -> set:
 
 
 def save_sessions(sessions: set):
-    """Save sessions to file."""
+    """Save hashed sessions to file."""
     SESSIONS_FILE.parent.mkdir(exist_ok=True)
     with open(SESSIONS_FILE, 'w') as f:
         json.dump(list(sessions), f)
 
 
-SESSIONS = load_sessions()
+SESSIONS = load_sessions()  # Contains hashed tokens
 
 # Templates
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -53,6 +99,9 @@ app = FastAPI(
     description="Budget overview for Søren and Anne",
     version="1.0.0"
 )
+
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware, max_attempts=5, window_seconds=300)
 
 
 # =============================================================================
@@ -72,10 +121,24 @@ templates.env.globals["format_currency"] = format_currency
 # Authentication
 # =============================================================================
 
+DEMO_SESSION_ID = "demo"  # Special marker for demo mode
+
+
 def check_auth(request: Request) -> bool:
-    """Check if request is authenticated."""
+    """Check if request is authenticated (including demo mode)."""
     session_id = request.cookies.get("budget_session")
-    return session_id in SESSIONS
+    if not session_id:
+        return False
+    # Demo mode
+    if session_id == DEMO_SESSION_ID:
+        return True
+    # Compare hashed token
+    return hash_token(session_id) in SESSIONS
+
+
+def is_demo_mode(request: Request) -> bool:
+    """Check if request is in demo mode (read-only)."""
+    return request.cookies.get("budget_session") == DEMO_SESSION_ID
 
 
 @app.get("/budget/login", response_class=HTMLResponse)
@@ -87,11 +150,17 @@ async def login_page(request: Request):
 
 
 @app.post("/budget/login")
-async def login(request: Request, pin: str = Form(...)):
-    """Login with PIN."""
-    if pin == BUDGET_PIN:
+async def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    """Login with username and password."""
+    user = db.authenticate_user(username, password)
+    if user:
         session_id = secrets.token_urlsafe(32)
-        SESSIONS.add(session_id)
+        # Store hashed token, not the plaintext
+        SESSIONS.add(hash_token(session_id))
         save_sessions(SESSIONS)
 
         response = RedirectResponse(url="/budget/", status_code=303)
@@ -99,23 +168,101 @@ async def login(request: Request, pin: str = Form(...)):
             key="budget_session",
             value=session_id,
             httponly=True,
+            secure=True,       # Only send over HTTPS
+            samesite="lax",    # CSRF protection
             max_age=86400 * 30  # 30 days
         )
         return response
     else:
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Forkert PIN"}
+            {"request": request, "error": "Forkert brugernavn eller adgangskode"}
         )
+
+
+@app.get("/budget/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """Show registration page."""
+    if check_auth(request):
+        return RedirectResponse(url="/budget/", status_code=303)
+    return templates.TemplateResponse("register.html", {"request": request})
+
+
+@app.post("/budget/register")
+async def register(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...)
+):
+    """Register a new user."""
+    # Validate input
+    if len(username) < 3:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Brugernavn skal være mindst 3 tegn"}
+        )
+
+    if len(password) < 6:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Adgangskode skal være mindst 6 tegn"}
+        )
+
+    if password != password_confirm:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Adgangskoderne matcher ikke"}
+        )
+
+    # Create user
+    user_id = db.create_user(username, password)
+    if user_id is None:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Brugernavnet er allerede taget"}
+        )
+
+    # Auto-login after registration
+    session_id = secrets.token_urlsafe(32)
+    SESSIONS.add(hash_token(session_id))
+    save_sessions(SESSIONS)
+
+    response = RedirectResponse(url="/budget/", status_code=303)
+    response.set_cookie(
+        key="budget_session",
+        value=session_id,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=86400 * 30
+    )
+    return response
+
+
+@app.get("/budget/demo")
+async def demo_mode(request: Request):
+    """Enter demo mode with pre-filled example data."""
+    response = RedirectResponse(url="/budget/", status_code=303)
+    response.set_cookie(
+        key="budget_session",
+        value=DEMO_SESSION_ID,
+        httponly=True,
+        samesite="lax",
+        max_age=3600  # Demo expires after 1 hour
+    )
+    return response
 
 
 @app.get("/budget/logout")
 async def logout(request: Request):
     """Logout and clear session."""
     session_id = request.cookies.get("budget_session")
-    if session_id in SESSIONS:
-        SESSIONS.remove(session_id)
-        save_sessions(SESSIONS)
+    if session_id:
+        hashed = hash_token(session_id)
+        if hashed in SESSIONS:
+            SESSIONS.remove(hashed)
+            save_sessions(SESSIONS)
 
     response = RedirectResponse(url="/budget/login", status_code=303)
     response.delete_cookie("budget_session")
@@ -133,15 +280,23 @@ async def dashboard(request: Request):
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
-    # Get data
-    incomes = db.get_all_income()
-    total_income = db.get_total_income()
-    total_expenses = db.get_total_monthly_expenses()
-    remaining = total_income - total_expenses
+    demo = is_demo_mode(request)
 
-    # Get expenses grouped by category with totals
-    expenses_by_category = db.get_expenses_by_category()
-    category_totals = db.get_category_totals()
+    # Get data (demo or real)
+    if demo:
+        incomes = db.get_demo_income()
+        total_income = db.get_demo_total_income()
+        total_expenses = db.get_demo_total_expenses()
+        expenses_by_category = db.get_demo_expenses_by_category()
+        category_totals = db.get_demo_category_totals()
+    else:
+        incomes = db.get_all_income()
+        total_income = db.get_total_income()
+        total_expenses = db.get_total_monthly_expenses()
+        expenses_by_category = db.get_expenses_by_category()
+        category_totals = db.get_category_totals()
+
+    remaining = total_income - total_expenses
 
     # Calculate percentages for progress bars
     category_percentages = {}
@@ -160,6 +315,7 @@ async def dashboard(request: Request):
             "expenses_by_category": expenses_by_category,
             "category_totals": category_totals,
             "category_percentages": category_percentages,
+            "demo_mode": demo,
         }
     )
 
@@ -328,6 +484,22 @@ async def delete_category(request: Request, category_id: int):
 
     db.delete_category(category_id)
     return RedirectResponse(url="/budget/categories", status_code=303)
+
+
+# =============================================================================
+# Help
+# =============================================================================
+
+@app.get("/budget/help", response_class=HTMLResponse)
+async def help_page(request: Request):
+    """User guide page."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    return templates.TemplateResponse(
+        "help.html",
+        {"request": request, "demo_mode": is_demo_mode(request)}
+    )
 
 
 # =============================================================================

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% set show_nav = true %}
+{% set active_page = 'help' %}
+
+{% block title %}Hjælp - Budget{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Sådan bruger du Budget</h1>
+        <a href="/budget/" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </a>
+    </div>
+
+    <div class="space-y-6">
+        <!-- Kom i gang -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="rocket" class="w-5 h-5 mr-2 text-primary"></i>
+                Kom i gang
+            </h2>
+            <ol class="space-y-2 text-gray-600 dark:text-gray-300 text-sm list-decimal list-inside">
+                <li>Opret en bruger med brugernavn og adgangskode</li>
+                <li>Indtast din og evt. partners månedlige indkomst</li>
+                <li>Tilføj dine faste udgifter (husleje, forsikringer, osv.)</li>
+                <li>Se dit budget-overblik på forsiden</li>
+            </ol>
+        </section>
+
+        <!-- Indkomst -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="wallet" class="w-5 h-5 mr-2 text-success"></i>
+                Indkomst
+            </h2>
+            <p class="text-gray-600 dark:text-gray-300 text-sm mb-2">
+                Indtast den månedlige nettoløn (efter skat) for hver person i husstanden.
+            </p>
+            <p class="text-gray-500 dark:text-gray-400 text-xs">
+                Tip: Brug gennemsnittet hvis lønnen varierer fra måned til måned.
+            </p>
+        </section>
+
+        <!-- Udgifter -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="receipt" class="w-5 h-5 mr-2 text-danger"></i>
+                Udgifter
+            </h2>
+            <p class="text-gray-600 dark:text-gray-300 text-sm mb-3">
+                Tilføj alle dine faste udgifter. Du kan vælge om de betales månedligt eller årligt.
+            </p>
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-sm">
+                <p class="font-medium text-gray-700 dark:text-gray-200 mb-2">Typiske udgifter at huske:</p>
+                <ul class="text-gray-600 dark:text-gray-300 space-y-1 text-xs">
+                    <li>• Husleje eller boliglån</li>
+                    <li>• El, vand, varme, internet</li>
+                    <li>• Forsikringer (indbo, bil, ulykke)</li>
+                    <li>• Transport (benzin, lån, afgifter)</li>
+                    <li>• Abonnementer (streaming, fitness)</li>
+                    <li>• Dagligvarer og mad</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Kategorier -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="folder" class="w-5 h-5 mr-2 text-amber-500"></i>
+                Kategorier
+            </h2>
+            <p class="text-gray-600 dark:text-gray-300 text-sm">
+                Udgifter grupperes i kategorier så du nemt kan se, hvor pengene går hen.
+                Du kan oprette dine egne kategorier under "Udgifter".
+            </p>
+        </section>
+
+        <!-- Overblik -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="pie-chart" class="w-5 h-5 mr-2 text-purple-500"></i>
+                Forstå overblikket
+            </h2>
+            <div class="space-y-3 text-sm">
+                <div class="flex items-start">
+                    <div class="w-3 h-3 rounded-full bg-success mt-1.5 mr-2 flex-shrink-0"></div>
+                    <div>
+                        <span class="font-medium text-gray-700 dark:text-gray-200">Til rådighed</span>
+                        <p class="text-gray-500 dark:text-gray-400 text-xs">Hvad der er tilbage efter alle faste udgifter</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-3 h-3 rounded-full bg-primary mt-1.5 mr-2 flex-shrink-0"></div>
+                    <div>
+                        <span class="font-medium text-gray-700 dark:text-gray-200">Indkomst</span>
+                        <p class="text-gray-500 dark:text-gray-400 text-xs">Samlet månedlig indtægt</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-3 h-3 rounded-full bg-danger mt-1.5 mr-2 flex-shrink-0"></div>
+                    <div>
+                        <span class="font-medium text-gray-700 dark:text-gray-200">Udgifter</span>
+                        <p class="text-gray-500 dark:text-gray-400 text-xs">Faste udgifter omregnet til månedligt beløb</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tips -->
+        <section class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+            <h2 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
+                <i data-lucide="lightbulb" class="w-5 h-5 mr-2"></i>
+                Tips
+            </h2>
+            <ul class="text-blue-800 dark:text-blue-200 text-sm space-y-2">
+                <li>• Årlige udgifter (fx forsikring) vises som 1/12 per måned</li>
+                <li>• Husk opsparing som en "udgift" for at budgettere korrekt</li>
+                <li>• Tjek dit budget regelmæssigt og opdater ved ændringer</li>
+            </ul>
+        </section>
+    </div>
+</div>
+{% endblock %}
