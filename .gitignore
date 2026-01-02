@@ -1,0 +1,19 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment
+.env
+
+# Data (personal budget data)
+data/*.db
+data/sessions.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

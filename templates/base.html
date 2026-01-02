@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="da" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Budget{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Smooth transitions */
+        .nav-item { transition: all 0.2s ease; }
+        .card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:active { transform: scale(0.98); }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
+    {% block content %}{% endblock %}
+
+    {% if show_nav is not defined or show_nav %}
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 safe-area-inset-bottom">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <a href="/budget/" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'dashboard' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
+                <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+                <span class="text-xs mt-1">Oversigt</span>
+            </a>
+            <a href="/budget/expenses" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'expenses' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
+                <i data-lucide="receipt" class="w-6 h-6"></i>
+                <span class="text-xs mt-1">Udgifter</span>
+            </a>
+            <a href="/budget/income" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'income' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
+                <i data-lucide="wallet" class="w-6 h-6"></i>
+                <span class="text-xs mt-1">Indkomst</span>
+            </a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

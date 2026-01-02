@@ -1,0 +1,165 @@
+{
+  "timestamp": "2026-01-02T02:01:06.448383",
+  "project": "family-budget",
+  "commit": "00e636762dc50ed8ceb863c9c55b5ba88488b1d2",
+  "previous_commit": null,
+  "files_reviewed": 4,
+  "summary": {
+    "total_issues": 16,
+    "auto_fixable": 3,
+    "by_severity": {
+      "error": 5,
+      "warning": 9,
+      "info": 2
+    },
+    "by_category": {
+      "security": 3,
+      "bug": 5,
+      "error_handling": 3,
+      "style": 1,
+      "performance": 4
+    }
+  },
+  "issues": [
+    {
+      "line": 9,
+      "severity": "warning",
+      "category": "security",
+      "message": "Inklusion af en databasefil (.db) i projektstier er problematisk, da det \u00f8ger risikoen for at committe f\u00f8lsomme persondata til versionsstyring.",
+      "auto_fixable": false,
+      "file": "family-budget/.agent/manifest.yaml"
+    },
+    {
+      "line": 16,
+      "severity": "warning",
+      "category": "bug",
+      "message": "Dependencies-listen er tom, hvilket er usandsynligt for et projekt defineret som 'website' (kr\u00e6ver typisk web-framework som Flask eller Django).",
+      "auto_fixable": false,
+      "file": "family-budget/.agent/manifest.yaml"
+    },
+    {
+      "line": 23,
+      "severity": "error",
+      "category": "security",
+      "message": "Hardcoded default PIN '1234' anvendes som fallback. Dette er en sikkerhedsrisiko, hvis BUDGET_PIN ikke er sat i milj\u00f8et.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 33,
+      "severity": "warning",
+      "category": "error_handling",
+      "message": "Broad exception med 'pass' i load_sessions skjuler potentielle fejl som korrupt JSON-fil eller rettighedsproblemer.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 44,
+      "severity": "error",
+      "category": "bug",
+      "message": "Session-state gemmes i en global variabel (SESSIONS), der kun indl\u00e6ses ved opstart. I et multi-worker milj\u00f8 (som uvicorn normalt k\u00f8rer) vil sessioner ikke v\u00e6re synkroniserede mellem processer.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 70,
+      "severity": "warning",
+      "category": "style",
+      "message": "Autentificering b\u00f8r h\u00e5ndteres via FastAPI 'Depends' fremfor manuelt kald i hver endpoint for at undg\u00e5 glemsel.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 95,
+      "severity": "warning",
+      "category": "security",
+      "message": "Cookie mangler 'samesite' og 'secure' flag. 'secure=True' b\u00f8r bruges ved HTTPS, og 'samesite' beskytter mod CSRF.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "            max_age=86400 * 30  # 30 days",
+        "new": "            max_age=86400 * 30, samesite='lax', secure=True  # 30 days"
+      },
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 167,
+      "severity": "error",
+      "category": "bug",
+      "message": "Hardcodede navne ('S\u00f8ren', 'Anne') i update_income g\u00f8r koden skr\u00f8belig. Hvis databasen \u00e6ndres eller f\u00e5r flere r\u00e6kker, fejler logikken.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 156,
+      "severity": "warning",
+      "category": "performance",
+      "message": "Hver anmodning til dashboardet laver 5 separate database-kald. Overvej at samle data i f\u00e6rre queries.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 270,
+      "severity": "warning",
+      "category": "bug",
+      "message": "init_db() kaldes direkte ved import af modulet. Dette skaber side-effects (filsystem-adgang og DB-skrivning), hvilket besv\u00e6rligg\u00f8r tests og kan skabe problemer i multithreaded milj\u00f8er.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "init_db()",
+        "new": "if __name__ == \"__main__\":\n    init_db()"
+      },
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 54,
+      "severity": "warning",
+      "category": "error_handling",
+      "message": "Databaseforbindelsen lukkes ikke, hvis der opst\u00e5r en exception under cur.execute(). Brug af context manager ('with') anbefales til b\u00e5de connection og cursor.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 74,
+      "severity": "warning",
+      "category": "performance",
+      "message": "Tabel 'expenses' bruger 'category' (TEXT) i stedet for 'category_id' (INTEGER) som reference. Dette er ineffektivt og kr\u00e6ver manuel opdatering af alle r\u00e6kker ved navne\u00e6ndring af kategorier.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 233,
+      "severity": "info",
+      "category": "performance",
+      "message": "Metoden kalder get_category_by_id(), som \u00e5bner/lukker sin egen databaseforbindelse, mens den nuv\u00e6rende funktion allerede har en \u00e5ben forbindelse. Dette er un\u00f8dvendigt overhead.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 249,
+      "severity": "error",
+      "category": "bug",
+      "message": "Race condition i delete_category. Der tjekkes for brug af kategori i \u00e9n forbindelse, og slettes i en anden. En udgift kan tilf\u00f8jes mellem de to operationer.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 109,
+      "severity": "error",
+      "category": "error_handling",
+      "message": "get_income_by_person fejler med en AttributeError hvis row er None, da dict(None) ikke er validt. Selvom der er en if-check bagefter, k\u00f8rer dict(row) f\u00f8rst.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "return Income(**dict(row)) if row else None",
+        "new": "return Income(**dict(row)) if row is not None else None"
+      },
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 54,
+      "severity": "info",
+      "category": "performance",
+      "message": "sqlite3.connect kaldes i hver eneste funktion. For en web-applikation b\u00f8r man bruge en connection pool eller genbruge forbindelsen per request for bedre performance.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    }
+  ]
+}

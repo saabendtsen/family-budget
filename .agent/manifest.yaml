@@ -1,0 +1,16 @@
+name: family-budget
+status: active
+type: website
+description: "Simpelt budget-overblik for Søren og Anne"
+
+critical_paths:
+  - src/
+  - templates/
+  - data/budget.db
+
+safe_to_delete:
+  - "*.log"
+  - "__pycache__/"
+  - "*.pyc"
+
+dependencies: []

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% set active_page = 'dashboard' %}
+
+{% block title %}Oversigt - Budget{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Budget</h1>
+        <a href="/budget/logout" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <i data-lucide="log-out" class="w-5 h-5"></i>
+        </a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 gap-3 mb-6">
+        <!-- Income -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mb-1">
+                <i data-lucide="trending-up" class="w-4 h-4 text-success"></i>
+                Indkomst
+            </div>
+            <div class="text-lg font-bold text-gray-900 dark:text-white">{{ format_currency(total_income) }}</div>
+        </div>
+
+        <!-- Expenses -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mb-1">
+                <i data-lucide="trending-down" class="w-4 h-4 text-danger"></i>
+                Udgifter
+            </div>
+            <div class="text-lg font-bold text-gray-900 dark:text-white">{{ format_currency(total_expenses) }}</div>
+        </div>
+    </div>
+
+    <!-- Remaining (Featured) -->
+    <div class="bg-gradient-to-r {% if remaining >= 0 %}from-emerald-500 to-green-600{% else %}from-red-500 to-rose-600{% endif %} rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div class="text-sm opacity-90 mb-1">Til fri brug</div>
+        <div class="text-3xl font-bold">{{ format_currency(remaining) }}</div>
+        <div class="text-sm opacity-75 mt-2">
+            {% if remaining >= 0 %}
+            {{ "%.0f"|format((remaining / total_income * 100) if total_income > 0 else 0) }}% af indkomst
+            {% else %}
+            Underskud!
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Expense Breakdown -->
+    {% if expenses_by_category %}
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Udgifter per kategori</h2>
+    <div class="space-y-3">
+        {% for category, expenses in expenses_by_category.items() %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div class="flex justify-between items-center mb-2">
+                <div class="font-medium text-gray-900 dark:text-white">{{ category }}</div>
+                <div class="text-gray-600 dark:text-gray-300">{{ format_currency(category_totals[category]) }}/md</div>
+            </div>
+
+            <!-- Individual expenses -->
+            <div class="space-y-2">
+                {% for expense in expenses %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-600 dark:text-gray-400">{{ expense.name }}</span>
+                    <span class="text-gray-900 dark:text-gray-200">
+                        {{ format_currency(expense.monthly_amount) }}
+                        {% if expense.frequency == 'yearly' %}
+                        <span class="text-gray-400 dark:text-gray-500 text-xs">({{ format_currency(expense.amount) }}/år)</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty state -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-8 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="receipt" class="w-6 h-6 text-gray-400"></i>
+        </div>
+        <h3 class="font-medium text-gray-900 dark:text-white mb-1">Ingen udgifter endnu</h3>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">Tilføj dine faste udgifter for at få et overblik</p>
+        <a href="/budget/expenses" class="inline-block bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium">
+            Tilføj udgifter
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Income breakdown (small) -->
+    <div class="mt-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-4">
+        <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Indkomst fordeling</div>
+        <div class="flex justify-between text-sm">
+            {% for income in incomes %}
+            <div>
+                <span class="text-gray-600 dark:text-gray-400">{{ income.person }}:</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ format_currency(income.amount_monthly) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
