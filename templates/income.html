@@ -11,19 +11,33 @@
         <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Månedlig indkomst efter skat</p>
     </div>
 
+    {% if demo_mode %}
+    <div class="mb-4 bg-amber-50 dark:bg-amber-900/30 rounded-xl p-4 text-amber-800 dark:text-amber-200 text-sm">
+        <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+        Demo mode - ændringer gemmes ikke
+    </div>
+    {% endif %}
+
     <form method="post" action="/budget/income" class="space-y-4">
-        {% for income in incomes %}
+        <!-- Person 1 -->
         <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+            <label class="block mb-3">
+                <span class="text-gray-500 dark:text-gray-400 text-sm">Navn</span>
+                <input
+                    type="text"
+                    name="person1_name"
+                    value="{{ incomes[0].person if incomes|length > 0 else 'Person 1' }}"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                >
+            </label>
             <label class="block">
-                <span class="text-gray-700 dark:text-gray-200 font-medium flex items-center gap-2">
-                    <i data-lucide="user" class="w-4 h-4"></i>
-                    {{ income.person }}
-                </span>
-                <div class="mt-2 relative">
+                <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
+                <div class="mt-1 relative">
                     <input
                         type="number"
-                        name="{{ 'soeren' if income.person == 'Søren' else 'anne' }}"
-                        value="{{ income.amount_monthly|int }}"
+                        name="person1_amount"
+                        value="{{ incomes[0].amount_monthly|int if incomes|length > 0 else 0 }}"
                         step="100"
                         min="0"
                         class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -33,11 +47,40 @@
                 </div>
             </label>
         </div>
-        {% endfor %}
+
+        <!-- Person 2 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+            <label class="block mb-3">
+                <span class="text-gray-500 dark:text-gray-400 text-sm">Navn</span>
+                <input
+                    type="text"
+                    name="person2_name"
+                    value="{{ incomes[1].person if incomes|length > 1 else 'Person 2' }}"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                >
+            </label>
+            <label class="block">
+                <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
+                <div class="mt-1 relative">
+                    <input
+                        type="number"
+                        name="person2_amount"
+                        value="{{ incomes[1].amount_monthly|int if incomes|length > 1 else 0 }}"
+                        step="100"
+                        min="0"
+                        class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        required
+                    >
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
+                </div>
+            </label>
+        </div>
 
         <button
             type="submit"
             class="w-full bg-primary text-white py-4 rounded-xl font-medium hover:bg-blue-600 active:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            {% if demo_mode %}disabled{% endif %}
         >
             <i data-lucide="check" class="w-5 h-5"></i>
             Gem

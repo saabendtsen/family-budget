@@ -60,7 +60,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 # Session management (file-based for persistence)
-# Sessions are stored as hashed tokens for security
+# Sessions map hashed tokens to user_ids
 SESSIONS_FILE = Path(__file__).parent.parent / "data" / "sessions.json"
 
 
@@ -69,25 +69,29 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def load_sessions() -> set:
-    """Load hashed sessions from file."""
+def load_sessions() -> dict:
+    """Load sessions from file. Returns dict mapping hashed tokens to user_ids."""
     if SESSIONS_FILE.exists():
         try:
             with open(SESSIONS_FILE) as f:
-                return set(json.load(f))
+                data = json.load(f)
+                # Migrate from old format (list) to new format (dict)
+                if isinstance(data, list):
+                    return {}  # Clear old sessions, users need to re-login
+                return data
         except Exception:
             pass
-    return set()
+    return {}
 
 
-def save_sessions(sessions: set):
-    """Save hashed sessions to file."""
+def save_sessions(sessions: dict):
+    """Save sessions to file."""
     SESSIONS_FILE.parent.mkdir(exist_ok=True)
     with open(SESSIONS_FILE, 'w') as f:
-        json.dump(list(sessions), f)
+        json.dump(sessions, f)
 
 
-SESSIONS = load_sessions()  # Contains hashed tokens
+SESSIONS = load_sessions()  # Maps hashed tokens to user_ids
 
 # Templates
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -136,6 +140,15 @@ def check_auth(request: Request) -> bool:
     return hash_token(session_id) in SESSIONS
 
 
+def get_user_id(request: Request) -> int | None:
+    """Get user_id from session. Returns None for demo mode or invalid sessions."""
+    session_id = request.cookies.get("budget_session")
+    if not session_id or session_id == DEMO_SESSION_ID:
+        return None
+    hashed = hash_token(session_id)
+    return SESSIONS.get(hashed)
+
+
 def is_demo_mode(request: Request) -> bool:
     """Check if request is in demo mode (read-only)."""
     return request.cookies.get("budget_session") == DEMO_SESSION_ID
@@ -159,8 +172,8 @@ async def login(
     user = db.authenticate_user(username, password)
     if user:
         session_id = secrets.token_urlsafe(32)
-        # Store hashed token, not the plaintext
-        SESSIONS.add(hash_token(session_id))
+        # Store hashed token mapped to user_id
+        SESSIONS[hash_token(session_id)] = user.id
         save_sessions(SESSIONS)
 
         response = RedirectResponse(url="/budget/", status_code=303)
@@ -216,8 +229,8 @@ async def register(
         )
 
     # Create user
-    user_id = db.create_user(username, password)
-    if user_id is None:
+    new_user_id = db.create_user(username, password)
+    if new_user_id is None:
         return templates.TemplateResponse(
             "register.html",
             {"request": request, "error": "Brugernavnet er allerede taget"}
@@ -225,7 +238,7 @@ async def register(
 
     # Auto-login after registration
     session_id = secrets.token_urlsafe(32)
-    SESSIONS.add(hash_token(session_id))
+    SESSIONS[hash_token(session_id)] = new_user_id
     save_sessions(SESSIONS)
 
     response = RedirectResponse(url="/budget/", status_code=303)
@@ -261,7 +274,7 @@ async def logout(request: Request):
     if session_id:
         hashed = hash_token(session_id)
         if hashed in SESSIONS:
-            SESSIONS.remove(hashed)
+            del SESSIONS[hashed]
             save_sessions(SESSIONS)
 
     response = RedirectResponse(url="/budget/login", status_code=303)
@@ -281,6 +294,7 @@ async def dashboard(request: Request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
     demo = is_demo_mode(request)
+    user_id = get_user_id(request)
 
     # Get data (demo or real)
     if demo:
@@ -290,11 +304,11 @@ async def dashboard(request: Request):
         expenses_by_category = db.get_demo_expenses_by_category()
         category_totals = db.get_demo_category_totals()
     else:
-        incomes = db.get_all_income()
-        total_income = db.get_total_income()
-        total_expenses = db.get_total_monthly_expenses()
-        expenses_by_category = db.get_expenses_by_category()
-        category_totals = db.get_category_totals()
+        incomes = db.get_all_income(user_id)
+        total_income = db.get_total_income(user_id)
+        total_expenses = db.get_total_monthly_expenses(user_id)
+        expenses_by_category = db.get_expenses_by_category(user_id)
+        category_totals = db.get_category_totals(user_id)
 
     remaining = total_income - total_expenses
 
@@ -330,25 +344,31 @@ async def income_page(request: Request):
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
-    incomes = db.get_all_income()
+    user_id = get_user_id(request)
+    incomes = db.get_all_income(user_id)
     return templates.TemplateResponse(
         "income.html",
-        {"request": request, "incomes": incomes}
+        {"request": request, "incomes": incomes, "demo_mode": is_demo_mode(request)}
     )
 
 
 @app.post("/budget/income")
 async def update_income(
     request: Request,
-    soeren: float = Form(...),
-    anne: float = Form(...)
+    person1_name: str = Form(...),
+    person1_amount: float = Form(...),
+    person2_name: str = Form(...),
+    person2_amount: float = Form(...)
 ):
     """Update income values."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/", status_code=303)
 
-    db.update_income("Søren", soeren)
-    db.update_income("Anne", anne)
+    user_id = get_user_id(request)
+    db.update_income(user_id, person1_name, person1_amount)
+    db.update_income(user_id, person2_name, person2_amount)
 
     return RedirectResponse(url="/budget/", status_code=303)
 
@@ -363,9 +383,18 @@ async def expenses_page(request: Request):
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
-    expenses = db.get_all_expenses()
-    expenses_by_category = db.get_expenses_by_category()
-    category_totals = db.get_category_totals()
+    user_id = get_user_id(request)
+    demo = is_demo_mode(request)
+
+    if demo:
+        expenses = db.get_demo_expenses()
+        expenses_by_category = db.get_demo_expenses_by_category()
+        category_totals = db.get_demo_category_totals()
+    else:
+        expenses = db.get_all_expenses(user_id)
+        expenses_by_category = db.get_expenses_by_category(user_id)
+        category_totals = db.get_category_totals(user_id)
+
     categories = db.get_all_categories()
 
     return templates.TemplateResponse(
@@ -376,6 +405,7 @@ async def expenses_page(request: Request):
             "expenses_by_category": expenses_by_category,
             "category_totals": category_totals,
             "categories": categories,
+            "demo_mode": demo,
         }
     )
 
@@ -391,8 +421,11 @@ async def add_expense(
     """Add a new expense."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/expenses", status_code=303)
 
-    db.add_expense(name, category, amount, frequency)
+    user_id = get_user_id(request)
+    db.add_expense(user_id, name, category, amount, frequency)
     return RedirectResponse(url="/budget/expenses", status_code=303)
 
 
@@ -401,8 +434,11 @@ async def delete_expense(request: Request, expense_id: int):
     """Delete an expense."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/expenses", status_code=303)
 
-    db.delete_expense(expense_id)
+    user_id = get_user_id(request)
+    db.delete_expense(expense_id, user_id)
     return RedirectResponse(url="/budget/expenses", status_code=303)
 
 
@@ -418,8 +454,11 @@ async def edit_expense(
     """Edit an expense."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/expenses", status_code=303)
 
-    db.update_expense(expense_id, name, category, amount, frequency)
+    user_id = get_user_id(request)
+    db.update_expense(expense_id, user_id, name, category, amount, frequency)
     return RedirectResponse(url="/budget/expenses", status_code=303)
 
 
@@ -443,6 +482,7 @@ async def categories_page(request: Request):
             "request": request,
             "categories": categories,
             "category_usage": category_usage,
+            "demo_mode": is_demo_mode(request),
         }
     )
 
@@ -456,6 +496,8 @@ async def add_category(
     """Add a new category."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/categories", status_code=303)
 
     db.add_category(name, icon)
     return RedirectResponse(url="/budget/categories", status_code=303)
@@ -471,6 +513,8 @@ async def edit_category(
     """Edit a category."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/categories", status_code=303)
 
     db.update_category(category_id, name, icon)
     return RedirectResponse(url="/budget/categories", status_code=303)
@@ -481,6 +525,8 @@ async def delete_category(request: Request, category_id: int):
     """Delete a category."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/categories", status_code=303)
 
     db.delete_category(category_id)
     return RedirectResponse(url="/budget/categories", status_code=303)

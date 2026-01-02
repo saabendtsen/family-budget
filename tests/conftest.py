@@ -65,13 +65,16 @@ def authenticated_client(client, db_module):
     from src import api
 
     # Create a test user
-    db_module.create_user("testuser", "testpass123")
+    user_id = db_module.create_user("testuser", "testpass123")
 
     # Create session manually (bypassing secure cookie issue)
     session_id = secrets.token_urlsafe(32)
-    api.SESSIONS.add(api.hash_token(session_id))
+    api.SESSIONS[api.hash_token(session_id)] = user_id
 
     # Set cookie on client
     client.cookies.set("budget_session", session_id)
+
+    # Store user_id on client for tests that need it
+    client.user_id = user_id
 
     return client

@@ -216,7 +216,12 @@ class TestIncomeEndpoints:
         """POST to income should update values."""
         response = authenticated_client.post(
             "/budget/income",
-            data={"soeren": "35000", "anne": "28000"},
+            data={
+                "person1_name": "Søren",
+                "person1_amount": "35000",
+                "person2_name": "Anne",
+                "person2_amount": "28000"
+            },
             follow_redirects=False
         )
 
@@ -251,8 +256,9 @@ class TestExpenseEndpoints:
 
     def test_delete_expense(self, authenticated_client, db_module):
         """POST to delete expense should remove it."""
-        # First add an expense
-        expense_id = db_module.add_expense("ToDelete", "Bolig", 500, "monthly")
+        # First add an expense using the authenticated user's ID
+        user_id = authenticated_client.user_id
+        expense_id = db_module.add_expense(user_id, "ToDelete", "Bolig", 500, "monthly")
 
         response = authenticated_client.post(
             f"/budget/expenses/{expense_id}/delete",
@@ -263,7 +269,8 @@ class TestExpenseEndpoints:
 
     def test_edit_expense(self, authenticated_client, db_module):
         """POST to edit expense should update it."""
-        expense_id = db_module.add_expense("Original", "Bolig", 500, "monthly")
+        user_id = authenticated_client.user_id
+        expense_id = db_module.add_expense(user_id, "Original", "Bolig", 500, "monthly")
 
         response = authenticated_client.post(
             f"/budget/expenses/{expense_id}/edit",

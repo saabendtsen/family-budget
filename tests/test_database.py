@@ -51,34 +51,58 @@ class TestPasswordHashing:
 class TestIncomeOperations:
     """Tests for income CRUD operations."""
 
-    def test_get_all_income_returns_default_entries(self, db_module):
-        """Database should have default income entries for Soeren and Anne."""
-        incomes = db_module.get_all_income()
+    def test_get_all_income_empty_for_new_user(self, db_module):
+        """New user should have no income entries."""
+        user_id = db_module.create_user("incometest1", "testpass")
+        incomes = db_module.get_all_income(user_id)
 
-        assert len(incomes) == 2
-        persons = {i.person for i in incomes}
-        assert "Søren" in persons
-        assert "Anne" in persons
+        assert len(incomes) == 0
+
+    def test_add_income(self, db_module):
+        """add_income should create a new income entry."""
+        user_id = db_module.create_user("incometest2", "testpass")
+        income_id = db_module.add_income(user_id, "Person 1", 30000)
+
+        assert income_id is not None
+        incomes = db_module.get_all_income(user_id)
+        assert len(incomes) == 1
+        assert incomes[0].person == "Person 1"
+        assert incomes[0].amount_monthly == 30000
 
     def test_update_income(self, db_module):
-        """update_income should change the amount."""
-        db_module.update_income("Søren", 35000)
+        """update_income should change the amount or create if not exists."""
+        user_id = db_module.create_user("incometest3", "testpass")
+        db_module.update_income(user_id, "Søren", 35000)
 
-        income = db_module.get_income_by_person("Søren")
-        assert income.amount_monthly == 35000
+        incomes = db_module.get_all_income(user_id)
+        soeren_income = next((i for i in incomes if i.person == "Søren"), None)
+        assert soeren_income is not None
+        assert soeren_income.amount_monthly == 35000
 
     def test_get_total_income(self, db_module):
         """get_total_income should sum all income entries."""
-        db_module.update_income("Søren", 30000)
-        db_module.update_income("Anne", 25000)
+        user_id = db_module.create_user("incometest4", "testpass")
+        db_module.update_income(user_id, "Søren", 30000)
+        db_module.update_income(user_id, "Anne", 25000)
 
-        total = db_module.get_total_income()
+        total = db_module.get_total_income(user_id)
         assert total == 55000
 
-    def test_get_income_by_person_not_found(self, db_module):
-        """get_income_by_person should return None for unknown person."""
-        income = db_module.get_income_by_person("Unknown")
-        assert income is None
+    def test_income_isolation_between_users(self, db_module):
+        """Each user should only see their own income."""
+        user1 = db_module.create_user("incometest5a", "testpass")
+        user2 = db_module.create_user("incometest5b", "testpass")
+
+        db_module.add_income(user1, "User1 Income", 50000)
+        db_module.add_income(user2, "User2 Income", 40000)
+
+        incomes1 = db_module.get_all_income(user1)
+        incomes2 = db_module.get_all_income(user2)
+
+        assert len(incomes1) == 1
+        assert len(incomes2) == 1
+        assert incomes1[0].person == "User1 Income"
+        assert incomes2[0].person == "User2 Income"
 
 
 class TestExpenseOperations:
@@ -86,10 +110,11 @@ class TestExpenseOperations:
 
     def test_add_expense(self, db_module):
         """add_expense should create a new expense."""
-        expense_id = db_module.add_expense("Husleje", "Bolig", 10000, "monthly")
+        user_id = db_module.create_user("expensetest1", "testpass")
+        expense_id = db_module.add_expense(user_id, "Husleje", "Bolig", 10000, "monthly")
 
         assert expense_id is not None
-        expense = db_module.get_expense_by_id(expense_id)
+        expense = db_module.get_expense_by_id(expense_id, user_id)
         assert expense.name == "Husleje"
         assert expense.category == "Bolig"
         assert expense.amount == 10000
@@ -97,24 +122,27 @@ class TestExpenseOperations:
 
     def test_expense_monthly_amount_for_monthly(self, db_module):
         """monthly_amount should return same amount for monthly expenses."""
-        expense_id = db_module.add_expense("Test", "Bolig", 1000, "monthly")
-        expense = db_module.get_expense_by_id(expense_id)
+        user_id = db_module.create_user("expensetest2", "testpass")
+        expense_id = db_module.add_expense(user_id, "Test", "Bolig", 1000, "monthly")
+        expense = db_module.get_expense_by_id(expense_id, user_id)
 
         assert expense.monthly_amount == 1000
 
     def test_expense_monthly_amount_for_yearly(self, db_module):
         """monthly_amount should divide by 12 for yearly expenses."""
-        expense_id = db_module.add_expense("Forsikring", "Forsikring", 12000, "yearly")
-        expense = db_module.get_expense_by_id(expense_id)
+        user_id = db_module.create_user("expensetest3", "testpass")
+        expense_id = db_module.add_expense(user_id, "Forsikring", "Forsikring", 12000, "yearly")
+        expense = db_module.get_expense_by_id(expense_id, user_id)
 
         assert expense.monthly_amount == 1000  # 12000 / 12
 
     def test_update_expense(self, db_module):
         """update_expense should modify existing expense."""
-        expense_id = db_module.add_expense("Old Name", "Bolig", 5000, "monthly")
-        db_module.update_expense(expense_id, "New Name", "Transport", 6000, "yearly")
+        user_id = db_module.create_user("expensetest4", "testpass")
+        expense_id = db_module.add_expense(user_id, "Old Name", "Bolig", 5000, "monthly")
+        db_module.update_expense(expense_id, user_id, "New Name", "Transport", 6000, "yearly")
 
-        expense = db_module.get_expense_by_id(expense_id)
+        expense = db_module.get_expense_by_id(expense_id, user_id)
         assert expense.name == "New Name"
         assert expense.category == "Transport"
         assert expense.amount == 6000
@@ -122,39 +150,59 @@ class TestExpenseOperations:
 
     def test_delete_expense(self, db_module):
         """delete_expense should remove the expense."""
-        expense_id = db_module.add_expense("To Delete", "Bolig", 1000, "monthly")
-        db_module.delete_expense(expense_id)
+        user_id = db_module.create_user("expensetest5", "testpass")
+        expense_id = db_module.add_expense(user_id, "To Delete", "Bolig", 1000, "monthly")
+        db_module.delete_expense(expense_id, user_id)
 
-        expense = db_module.get_expense_by_id(expense_id)
+        expense = db_module.get_expense_by_id(expense_id, user_id)
         assert expense is None
 
     def test_get_total_monthly_expenses(self, db_module):
         """get_total_monthly_expenses should calculate correct total."""
-        db_module.add_expense("Monthly", "Bolig", 1000, "monthly")
-        db_module.add_expense("Yearly", "Bolig", 1200, "yearly")  # 100/month
+        user_id = db_module.create_user("expensetest6", "testpass")
+        db_module.add_expense(user_id, "Monthly", "Bolig", 1000, "monthly")
+        db_module.add_expense(user_id, "Yearly", "Bolig", 1200, "yearly")  # 100/month
 
-        total = db_module.get_total_monthly_expenses()
+        total = db_module.get_total_monthly_expenses(user_id)
         assert total == 1100  # 1000 + 100
 
     def test_get_expenses_by_category(self, db_module):
         """get_expenses_by_category should group expenses correctly."""
-        db_module.add_expense("Expense 1", "Bolig", 1000, "monthly")
-        db_module.add_expense("Expense 2", "Bolig", 2000, "monthly")
-        db_module.add_expense("Expense 3", "Transport", 500, "monthly")
+        user_id = db_module.create_user("expensetest7", "testpass")
+        db_module.add_expense(user_id, "Expense 1", "Bolig", 1000, "monthly")
+        db_module.add_expense(user_id, "Expense 2", "Bolig", 2000, "monthly")
+        db_module.add_expense(user_id, "Expense 3", "Transport", 500, "monthly")
 
-        grouped = db_module.get_expenses_by_category()
+        grouped = db_module.get_expenses_by_category(user_id)
 
         assert len(grouped["Bolig"]) == 2
         assert len(grouped["Transport"]) == 1
 
     def test_get_category_totals(self, db_module):
         """get_category_totals should sum monthly amounts per category."""
-        db_module.add_expense("Rent", "Bolig", 10000, "monthly")
-        db_module.add_expense("Tax", "Bolig", 12000, "yearly")  # 1000/month
+        user_id = db_module.create_user("expensetest8", "testpass")
+        db_module.add_expense(user_id, "Rent", "Bolig", 10000, "monthly")
+        db_module.add_expense(user_id, "Tax", "Bolig", 12000, "yearly")  # 1000/month
 
-        totals = db_module.get_category_totals()
+        totals = db_module.get_category_totals(user_id)
 
         assert totals["Bolig"] == 11000  # 10000 + 1000
+
+    def test_expense_isolation_between_users(self, db_module):
+        """Each user should only see their own expenses."""
+        user1 = db_module.create_user("expensetest9a", "testpass")
+        user2 = db_module.create_user("expensetest9b", "testpass")
+
+        db_module.add_expense(user1, "User1 Expense", "Bolig", 5000, "monthly")
+        db_module.add_expense(user2, "User2 Expense", "Bolig", 3000, "monthly")
+
+        expenses1 = db_module.get_all_expenses(user1)
+        expenses2 = db_module.get_all_expenses(user2)
+
+        assert len(expenses1) == 1
+        assert len(expenses2) == 1
+        assert expenses1[0].name == "User1 Expense"
+        assert expenses2[0].name == "User2 Expense"
 
 
 class TestCategoryOperations:
@@ -188,12 +236,13 @@ class TestCategoryOperations:
 
     def test_update_category_updates_expenses(self, db_module):
         """Renaming a category should update expenses using it."""
+        user_id = db_module.create_user("cattest1", "testpass")
         category_id = db_module.add_category("OldCat", "icon")
-        db_module.add_expense("Test Expense", "OldCat", 100, "monthly")
+        db_module.add_expense(user_id, "Test Expense", "OldCat", 100, "monthly")
 
         db_module.update_category(category_id, "NewCat", "icon")
 
-        expenses = db_module.get_all_expenses()
+        expenses = db_module.get_all_expenses(user_id)
         expense = next(e for e in expenses if e.name == "Test Expense")
         assert expense.category == "NewCat"
 
@@ -208,8 +257,9 @@ class TestCategoryOperations:
 
     def test_delete_category_in_use_fails(self, db_module):
         """delete_category should fail when category has expenses."""
+        user_id = db_module.create_user("cattest2", "testpass")
         category_id = db_module.add_category("InUse", "icon")
-        db_module.add_expense("Uses Category", "InUse", 100, "monthly")
+        db_module.add_expense(user_id, "Uses Category", "InUse", 100, "monthly")
 
         result = db_module.delete_category(category_id)
 
@@ -218,9 +268,10 @@ class TestCategoryOperations:
 
     def test_get_category_usage_count(self, db_module):
         """get_category_usage_count should return correct count."""
+        user_id = db_module.create_user("cattest3", "testpass")
         db_module.add_category("TestCat", "icon")
-        db_module.add_expense("Exp1", "TestCat", 100, "monthly")
-        db_module.add_expense("Exp2", "TestCat", 200, "monthly")
+        db_module.add_expense(user_id, "Exp1", "TestCat", 100, "monthly")
+        db_module.add_expense(user_id, "Exp2", "TestCat", 200, "monthly")
 
         count = db_module.get_category_usage_count("TestCat")
         assert count == 2
@@ -263,9 +314,9 @@ class TestUserOperations:
 
     def test_authenticate_user_wrong_password(self, db_module):
         """authenticate_user should return None for wrong password."""
-        db_module.create_user("authuser", "correctpass")
+        db_module.create_user("authuser2", "correctpass")
 
-        user = db_module.authenticate_user("authuser", "wrongpass")
+        user = db_module.authenticate_user("authuser2", "wrongpass")
 
         assert user is None
 
@@ -279,8 +330,8 @@ class TestUserOperations:
         """get_user_count should return correct count."""
         initial_count = db_module.get_user_count()
 
-        db_module.create_user("user1", "pass")
-        db_module.create_user("user2", "pass")
+        db_module.create_user("user1x", "pass")
+        db_module.create_user("user2x", "pass")
 
         assert db_module.get_user_count() == initial_count + 2
 
@@ -317,8 +368,9 @@ class TestDemoData:
 
     def test_demo_data_is_read_only(self, db_module):
         """Demo data should be independent of database state."""
-        # Add real expense
-        db_module.add_expense("Real Expense", "Bolig", 99999, "monthly")
+        # Add real expense (need user first)
+        user_id = db_module.create_user("demotest1", "testpass")
+        db_module.add_expense(user_id, "Real Expense", "Bolig", 99999, "monthly")
 
         # Demo data should not include it
         demo_expenses = db_module.get_demo_expenses()

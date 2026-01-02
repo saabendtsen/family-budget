@@ -74,6 +74,7 @@ DEMO_EXPENSES = [
 @dataclass
 class Income:
     id: int
+    user_id: int
     person: str
     amount_monthly: float
 
@@ -81,6 +82,7 @@ class Income:
 @dataclass
 class Expense:
     id: int
+    user_id: int
     name: str
     category: str
     amount: float
@@ -126,19 +128,24 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS income (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            person TEXT NOT NULL UNIQUE,
-            amount_monthly REAL NOT NULL DEFAULT 0
+            user_id INTEGER NOT NULL,
+            person TEXT NOT NULL,
+            amount_monthly REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            UNIQUE(user_id, person)
         )
     """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             category TEXT NOT NULL,
             amount REAL NOT NULL,
             frequency TEXT NOT NULL CHECK(frequency IN ('monthly', 'yearly')),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     """)
 
@@ -160,12 +167,6 @@ def init_db():
         )
     """)
 
-    # Insert default incomes (Søren and Anne)
-    cur.execute("""
-        INSERT OR IGNORE INTO income (person, amount_monthly)
-        VALUES ('Søren', 0), ('Anne', 0)
-    """)
-
     # Insert default categories
     for name, icon in DEFAULT_CATEGORIES:
         cur.execute(
@@ -181,46 +182,60 @@ def init_db():
 # Income operations
 # =============================================================================
 
-def get_all_income() -> list[Income]:
-    """Get all income entries."""
+def get_all_income(user_id: int) -> list[Income]:
+    """Get all income entries for a user."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, person, amount_monthly FROM income ORDER BY person")
+    cur.execute(
+        "SELECT id, user_id, person, amount_monthly FROM income WHERE user_id = ? ORDER BY person",
+        (user_id,)
+    )
     rows = cur.fetchall()
     conn.close()
     return [Income(**dict(row)) for row in rows]
 
 
-def get_income_by_person(person: str) -> Optional[Income]:
-    """Get income for a specific person."""
+def add_income(user_id: int, person: str, amount: float) -> int:
+    """Add income entry for a user. Returns the new income ID."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, person, amount_monthly FROM income WHERE person = ?",
-        (person,)
+        "INSERT INTO income (user_id, person, amount_monthly) VALUES (?, ?, ?)",
+        (user_id, person, amount)
     )
-    row = cur.fetchone()
+    income_id = cur.lastrowid
+    conn.commit()
     conn.close()
-    return Income(**dict(row)) if row else None
+    return income_id
 
 
-def update_income(person: str, amount: float):
-    """Update income for a person."""
+def update_income(user_id: int, person: str, amount: float):
+    """Update or insert income for a user."""
     conn = get_connection()
     cur = conn.cursor()
+    # Try to update existing
     cur.execute(
-        "UPDATE income SET amount_monthly = ? WHERE person = ?",
-        (amount, person)
+        "UPDATE income SET amount_monthly = ? WHERE user_id = ? AND person = ?",
+        (amount, user_id, person)
     )
+    if cur.rowcount == 0:
+        # Insert new if not exists
+        cur.execute(
+            "INSERT INTO income (user_id, person, amount_monthly) VALUES (?, ?, ?)",
+            (user_id, person, amount)
+        )
     conn.commit()
     conn.close()
 
 
-def get_total_income() -> float:
-    """Get total monthly income."""
+def get_total_income(user_id: int) -> float:
+    """Get total monthly income for a user."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT COALESCE(SUM(amount_monthly), 0) FROM income")
+    cur.execute(
+        "SELECT COALESCE(SUM(amount_monthly), 0) FROM income WHERE user_id = ?",
+        (user_id,)
+    )
     total = cur.fetchone()[0]
     conn.close()
     return total
@@ -230,41 +245,42 @@ def get_total_income() -> float:
 # Expense operations
 # =============================================================================
 
-def get_all_expenses() -> list[Expense]:
-    """Get all expenses."""
+def get_all_expenses(user_id: int) -> list[Expense]:
+    """Get all expenses for a user."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, name, category, amount, frequency
+        SELECT id, user_id, name, category, amount, frequency
         FROM expenses
+        WHERE user_id = ?
         ORDER BY category, name
-    """)
+    """, (user_id,))
     rows = cur.fetchall()
     conn.close()
     return [Expense(**dict(row)) for row in rows]
 
 
-def get_expense_by_id(expense_id: int) -> Optional[Expense]:
-    """Get a specific expense."""
+def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
+    """Get a specific expense for a user."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, name, category, amount, frequency FROM expenses WHERE id = ?",
-        (expense_id,)
+        "SELECT id, user_id, name, category, amount, frequency FROM expenses WHERE id = ? AND user_id = ?",
+        (expense_id, user_id)
     )
     row = cur.fetchone()
     conn.close()
     return Expense(**dict(row)) if row else None
 
 
-def add_expense(name: str, category: str, amount: float, frequency: str) -> int:
-    """Add a new expense. Returns the new expense ID."""
+def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str) -> int:
+    """Add a new expense for a user. Returns the new expense ID."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """INSERT INTO expenses (name, category, amount, frequency)
-           VALUES (?, ?, ?, ?)""",
-        (name, category, amount, frequency)
+        """INSERT INTO expenses (user_id, name, category, amount, frequency)
+           VALUES (?, ?, ?, ?, ?)""",
+        (user_id, name, category, amount, frequency)
     )
     expense_id = cur.lastrowid
     conn.commit()
@@ -272,31 +288,31 @@ def add_expense(name: str, category: str, amount: float, frequency: str) -> int:
     return expense_id
 
 
-def update_expense(expense_id: int, name: str, category: str, amount: float, frequency: str):
-    """Update an existing expense."""
+def update_expense(expense_id: int, user_id: int, name: str, category: str, amount: float, frequency: str):
+    """Update an existing expense for a user."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
         """UPDATE expenses
            SET name = ?, category = ?, amount = ?, frequency = ?
-           WHERE id = ?""",
-        (name, category, amount, frequency, expense_id)
+           WHERE id = ? AND user_id = ?""",
+        (name, category, amount, frequency, expense_id, user_id)
     )
     conn.commit()
     conn.close()
 
 
-def delete_expense(expense_id: int):
-    """Delete an expense."""
+def delete_expense(expense_id: int, user_id: int):
+    """Delete an expense for a user."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+    cur.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id))
     conn.commit()
     conn.close()
 
 
-def get_total_monthly_expenses() -> float:
-    """Get total monthly expenses (yearly divided by 12)."""
+def get_total_monthly_expenses(user_id: int) -> float:
+    """Get total monthly expenses for a user (yearly divided by 12)."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -305,16 +321,16 @@ def get_total_monthly_expenses() -> float:
                 WHEN frequency = 'yearly' THEN amount / 12
                 ELSE amount
             END
-        ), 0) FROM expenses
-    """)
+        ), 0) FROM expenses WHERE user_id = ?
+    """, (user_id,))
     total = cur.fetchone()[0]
     conn.close()
     return total
 
 
-def get_expenses_by_category() -> dict[str, list[Expense]]:
-    """Get expenses grouped by category."""
-    expenses = get_all_expenses()
+def get_expenses_by_category(user_id: int) -> dict[str, list[Expense]]:
+    """Get expenses grouped by category for a user."""
+    expenses = get_all_expenses(user_id)
     grouped = {}
     for exp in expenses:
         if exp.category not in grouped:
@@ -323,9 +339,9 @@ def get_expenses_by_category() -> dict[str, list[Expense]]:
     return grouped
 
 
-def get_category_totals() -> dict[str, float]:
-    """Get total monthly amount per category."""
-    expenses = get_all_expenses()
+def get_category_totals(user_id: int) -> dict[str, float]:
+    """Get total monthly amount per category for a user."""
+    expenses = get_all_expenses(user_id)
     totals = {}
     for exp in expenses:
         if exp.category not in totals:
@@ -480,7 +496,7 @@ def get_user_count() -> int:
 
 def get_demo_income() -> list[Income]:
     """Get demo income data."""
-    return [Income(id=i+1, person=person, amount_monthly=amount)
+    return [Income(id=i+1, user_id=0, person=person, amount_monthly=amount)
             for i, (person, amount) in enumerate(DEMO_INCOME)]
 
 
@@ -491,7 +507,7 @@ def get_demo_total_income() -> float:
 
 def get_demo_expenses() -> list[Expense]:
     """Get demo expense data."""
-    return [Expense(id=i+1, name=name, category=cat, amount=amount, frequency=freq)
+    return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq)
             for i, (name, cat, amount, freq) in enumerate(DEMO_EXPENSES)]
 
 
