@@ -42,8 +42,8 @@ DEFAULT_CATEGORIES = [
 
 # Demo data - typical Danish household budget
 DEMO_INCOME = [
-    ("Person 1", 32000),
-    ("Person 2", 28000),
+    ("Person 1", 28000),
+    ("Person 2", 22000),
 ]
 
 DEMO_EXPENSES = [
