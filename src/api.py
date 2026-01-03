@@ -79,8 +79,10 @@ def load_sessions() -> dict:
                 if isinstance(data, list):
                     return {}  # Clear old sessions, users need to re-login
                 return data
-        except Exception:
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            # Log corruption/permission issues but continue with empty sessions
+            import logging
+            logging.warning(f"Could not load sessions file: {e}")
     return {}
 
 

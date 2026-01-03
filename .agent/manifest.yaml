@@ -6,11 +6,16 @@ description: "Simpelt budget-overblik for Søren og Anne"
 critical_paths:
   - src/
   - templates/
-  - data/budget.db
+  - data/  # Database directory (db files should be gitignored)
 
 safe_to_delete:
   - "*.log"
   - "__pycache__/"
   - "*.pyc"
 
-dependencies: []
+dependencies:
+  - fastapi
+  - uvicorn
+  - jinja2
+  - python-dotenv
+  - python-multipart

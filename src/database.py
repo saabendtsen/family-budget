@@ -405,21 +405,34 @@ def update_category(category_id: int, name: str, icon: str):
 
 
 def delete_category(category_id: int) -> bool:
-    """Delete a category. Returns False if category is in use."""
+    """Delete a category. Returns False if category is in use.
+
+    Uses a single connection to avoid race conditions between
+    checking for usage and deleting.
+    """
     conn = get_connection()
     cur = conn.cursor()
-    # Check if any expenses use this category
-    cat = get_category_by_id(category_id)
-    if cat:
-        cur.execute("SELECT COUNT(*) FROM expenses WHERE category = ?", (cat.name,))
+    try:
+        # Get category name first
+        cur.execute("SELECT name FROM categories WHERE id = ?", (category_id,))
+        row = cur.fetchone()
+        if not row:
+            return False
+
+        cat_name = row[0]
+
+        # Check if any expenses use this category
+        cur.execute("SELECT COUNT(*) FROM expenses WHERE category = ?", (cat_name,))
         count = cur.fetchone()[0]
         if count > 0:
-            conn.close()
             return False
-    cur.execute("DELETE FROM categories WHERE id = ?", (category_id,))
-    conn.commit()
-    conn.close()
-    return True
+
+        # Delete the category
+        cur.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
 
 
 def get_category_usage_count(category_name: str) -> int:
@@ -538,5 +551,6 @@ def get_demo_total_expenses() -> float:
     return sum(exp.monthly_amount for exp in get_demo_expenses())
 
 
-# Initialize database on import
-init_db()
+# Initialize database on import (guarded for testing)
+if __name__ != "__test__":
+    init_db()
