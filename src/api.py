@@ -1,11 +1,14 @@
 """FastAPI application for Family Budget."""
 
+import fcntl
 import hashlib
 import json
-import os
+import logging
 import secrets
+import sqlite3
 import time
 from collections import defaultdict
+from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,6 +18,12 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import database as db
+
+# Initialize database at startup
+db.init_db()
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -36,18 +45,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             client_ip = request.client.host if request.client else "unknown"
             now = time.time()
 
-            # Clean old attempts
+            # Clean old attempts for this IP
             self.attempts[client_ip] = [
                 t for t in self.attempts[client_ip]
                 if now - t < self.window_seconds
             ]
 
-            # Check if rate limited
-            if len(self.attempts[client_ip]) >= self.max_attempts:
-                return HTMLResponse(
-                    content="For mange login forsøg. Prøv igen om 5 minutter.",
-                    status_code=429
-                )
+            # Remove IP key entirely if no recent attempts (prevents memory leak)
+            if not self.attempts[client_ip]:
+                del self.attempts[client_ip]
+            else:
+                # Check if rate limited
+                if len(self.attempts[client_ip]) >= self.max_attempts:
+                    return HTMLResponse(
+                        content="For mange login forsøg. Prøv igen om 5 minutter.",
+                        status_code=429
+                    )
 
             # Record this attempt
             self.attempts[client_ip].append(now)
@@ -70,27 +83,42 @@ def hash_token(token: str) -> str:
 
 
 def load_sessions() -> dict:
-    """Load sessions from file. Returns dict mapping hashed tokens to user_ids."""
+    """Load sessions from file with file locking.
+
+    Returns dict mapping hashed tokens to user_ids.
+    Uses fcntl.LOCK_SH (shared lock) for reading.
+    """
     if SESSIONS_FILE.exists():
         try:
             with open(SESSIONS_FILE) as f:
-                data = json.load(f)
-                # Migrate from old format (list) to new format (dict)
-                if isinstance(data, list):
-                    return {}  # Clear old sessions, users need to re-login
-                return data
+                fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+                try:
+                    data = json.load(f)
+                    # Migrate from old format (list) to new format (dict)
+                    if isinstance(data, list):
+                        return {}  # Clear old sessions, users need to re-login
+                    return data
+                finally:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         except (json.JSONDecodeError, OSError) as e:
             # Log corruption/permission issues but continue with empty sessions
-            import logging
             logging.warning(f"Could not load sessions file: {e}")
     return {}
 
 
 def save_sessions(sessions: dict):
-    """Save sessions to file."""
+    """Save sessions to file with file locking.
+
+    Uses fcntl.LOCK_EX (exclusive lock) for writing to prevent
+    race conditions with concurrent login/logout operations.
+    """
     SESSIONS_FILE.parent.mkdir(exist_ok=True)
     with open(SESSIONS_FILE, 'w') as f:
-        json.dump(sessions, f)
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            json.dump(sessions, f)
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 SESSIONS = load_sessions()  # Maps hashed tokens to user_ids
@@ -263,6 +291,7 @@ async def demo_mode(request: Request):
         key="budget_session",
         value=DEMO_SESSION_ID,
         httponly=True,
+        secure=True,       # Only send over HTTPS
         samesite="lax",
         max_age=3600  # Demo expires after 1 hour
     )
@@ -369,8 +398,12 @@ async def update_income(
         return RedirectResponse(url="/budget/", status_code=303)
 
     user_id = get_user_id(request)
-    db.update_income(user_id, person1_name, person1_amount)
-    db.update_income(user_id, person2_name, person2_amount)
+    try:
+        db.update_income(user_id, person1_name, person1_amount)
+        db.update_income(user_id, person2_name, person2_amount)
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating income: {e}")
+        raise HTTPException(status_code=500, detail="Der opstod en fejl ved opdatering af indkomst")
 
     return RedirectResponse(url="/budget/", status_code=303)
 
@@ -427,7 +460,11 @@ async def add_expense(
         return RedirectResponse(url="/budget/expenses", status_code=303)
 
     user_id = get_user_id(request)
-    db.add_expense(user_id, name, category, amount, frequency)
+    try:
+        db.add_expense(user_id, name, category, amount, frequency)
+    except sqlite3.Error as e:
+        logger.error(f"Database error adding expense: {e}")
+        raise HTTPException(status_code=500, detail="Der opstod en fejl ved tilfoejelse af udgiften")
     return RedirectResponse(url="/budget/expenses", status_code=303)
 
 
@@ -440,7 +477,11 @@ async def delete_expense(request: Request, expense_id: int):
         return RedirectResponse(url="/budget/expenses", status_code=303)
 
     user_id = get_user_id(request)
-    db.delete_expense(expense_id, user_id)
+    try:
+        db.delete_expense(expense_id, user_id)
+    except sqlite3.Error as e:
+        logger.error(f"Database error deleting expense: {e}")
+        raise HTTPException(status_code=500, detail="Der opstod en fejl ved sletning af udgiften")
     return RedirectResponse(url="/budget/expenses", status_code=303)
 
 
@@ -460,7 +501,11 @@ async def edit_expense(
         return RedirectResponse(url="/budget/expenses", status_code=303)
 
     user_id = get_user_id(request)
-    db.update_expense(expense_id, user_id, name, category, amount, frequency)
+    try:
+        db.update_expense(expense_id, user_id, name, category, amount, frequency)
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating expense: {e}")
+        raise HTTPException(status_code=500, detail="Der opstod en fejl ved opdatering af udgiften")
     return RedirectResponse(url="/budget/expenses", status_code=303)
 
 
@@ -524,13 +569,27 @@ async def edit_category(
 
 @app.post("/budget/categories/{category_id}/delete")
 async def delete_category(request: Request, category_id: int):
-    """Delete a category."""
+    """Delete a category.
+
+    Note: Categories are global (shared across all users). Deletion is allowed
+    for any authenticated user, but only if the category is not in use.
+    """
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
     if is_demo_mode(request):
         return RedirectResponse(url="/budget/categories", status_code=303)
 
-    db.delete_category(category_id)
+    try:
+        success = db.delete_category(category_id)
+        if not success:
+            # Category is in use or doesn't exist
+            raise HTTPException(
+                status_code=400,
+                detail="Kategorien kan ikke slettes - den er stadig i brug"
+            )
+    except sqlite3.Error as e:
+        logger.error(f"Database error deleting category: {e}")
+        raise HTTPException(status_code=500, detail="Der opstod en fejl ved sletning af kategorien")
     return RedirectResponse(url="/budget/categories", status_code=303)
 
 

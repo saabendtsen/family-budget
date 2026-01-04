@@ -14,11 +14,16 @@ DB_PATH = Path(__file__).parent.parent / "data" / "budget.db"
 # Password hashing (using PBKDF2 for simplicity, no extra dependencies)
 # =============================================================================
 
+# OWASP recommends 600,000 iterations for PBKDF2-HMAC-SHA256 (2023)
+# https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+PBKDF2_ITERATIONS = 600_000
+
+
 def hash_password(password: str, salt: Optional[bytes] = None) -> tuple[str, str]:
     """Hash password with PBKDF2. Returns (hash, salt) as hex strings."""
     if salt is None:
         salt = secrets.token_bytes(32)
-    hashed = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
+    hashed = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, PBKDF2_ITERATIONS)
     return hashed.hex(), salt.hex()
 
 
@@ -113,14 +118,19 @@ class User:
 
 def get_connection() -> sqlite3.Connection:
     """Get database connection."""
-    DB_PATH.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
+def ensure_db_directory():
+    """Ensure database directory exists. Called once at init."""
+    DB_PATH.parent.mkdir(exist_ok=True)
+
+
 def init_db():
     """Initialize database with schema and default data."""
+    ensure_db_directory()
     conn = get_connection()
     cur = conn.cursor()
 
@@ -210,20 +220,19 @@ def add_income(user_id: int, person: str, amount: float) -> int:
 
 
 def update_income(user_id: int, person: str, amount: float):
-    """Update or insert income for a user."""
+    """Update or insert income for a user.
+
+    Uses INSERT ... ON CONFLICT for atomic upsert operation,
+    which is thread-safe and more efficient than check-then-act.
+    """
     conn = get_connection()
     cur = conn.cursor()
-    # Try to update existing
     cur.execute(
-        "UPDATE income SET amount_monthly = ? WHERE user_id = ? AND person = ?",
-        (amount, user_id, person)
+        """INSERT INTO income (user_id, person, amount_monthly)
+           VALUES (?, ?, ?)
+           ON CONFLICT(user_id, person) DO UPDATE SET amount_monthly = excluded.amount_monthly""",
+        (user_id, person, amount)
     )
-    if cur.rowcount == 0:
-        # Insert new if not exists
-        cur.execute(
-            "INSERT INTO income (user_id, person, amount_monthly) VALUES (?, ?, ?)",
-            (user_id, person, amount)
-        )
     conn.commit()
     conn.close()
 
@@ -450,26 +459,30 @@ def get_category_usage_count(category_name: str) -> int:
 # =============================================================================
 
 def create_user(username: str, password: str) -> Optional[int]:
-    """Create a new user. Returns user ID or None if username exists."""
+    """Create a new user. Returns user ID or None if username exists.
+
+    Uses try/except for IntegrityError to handle race conditions where
+    another process might insert the same username between check and insert.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
-    # Check if username already exists
-    cur.execute("SELECT id FROM users WHERE username = ?", (username,))
-    if cur.fetchone():
-        conn.close()
-        return None
-
-    # Hash password and create user
+    # Hash password and attempt to create user
+    # The UNIQUE constraint on username will raise IntegrityError if duplicate
     password_hash, salt = hash_password(password)
-    cur.execute(
-        "INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)",
-        (username, password_hash, salt)
-    )
-    user_id = cur.lastrowid
-    conn.commit()
-    conn.close()
-    return user_id
+    try:
+        cur.execute(
+            "INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)",
+            (username, password_hash, salt)
+        )
+        user_id = cur.lastrowid
+        conn.commit()
+        return user_id
+    except sqlite3.IntegrityError:
+        # Username already exists (caught via UNIQUE constraint)
+        return None
+    finally:
+        conn.close()
 
 
 def get_user_by_username(username: str) -> Optional[User]:
@@ -551,6 +564,7 @@ def get_demo_total_expenses() -> float:
     return sum(exp.monthly_amount for exp in get_demo_expenses())
 
 
-# Initialize database on import (guarded for testing)
-if __name__ != "__test__":
+# Initialize database when run directly (for testing/setup)
+# For production, api.py calls init_db() explicitly at startup
+if __name__ == "__main__":
     init_db()
