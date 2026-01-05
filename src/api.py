@@ -8,7 +8,6 @@ import secrets
 import sqlite3
 import time
 from collections import defaultdict
-from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
