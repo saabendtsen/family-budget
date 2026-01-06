@@ -10,3 +10,4 @@ services:
       - ./data:/app/data
     environment:
       - TZ=Europe/Copenhagen
+      - PYTHONUNBUFFERED=1

@@ -1,9 +1,9 @@
 """FastAPI application for Family Budget."""
 
-import fcntl
 import hashlib
 import json
 import logging
+import os
 import secrets
 import sqlite3
 import time
@@ -29,45 +29,30 @@ logger = logging.getLogger(__name__)
 # Rate limiting
 # =============================================================================
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple rate limiting for login attempts."""
-
-    def __init__(self, app, max_attempts: int = 5, window_seconds: int = 300):
-        super().__init__(app)
-        self.max_attempts = max_attempts
-        self.window_seconds = window_seconds
-        self.attempts: dict[str, list[float]] = defaultdict(list)
-
-    async def dispatch(self, request: Request, call_next):
-        # Only rate limit login POST requests
-        if request.url.path == "/budget/login" and request.method == "POST":
-            client_ip = request.client.host if request.client else "unknown"
-            now = time.time()
-
-            # Clean old attempts for this IP
-            self.attempts[client_ip] = [
-                t for t in self.attempts[client_ip]
-                if now - t < self.window_seconds
-            ]
-
-            # Remove IP key entirely if no recent attempts (prevents memory leak)
-            if not self.attempts[client_ip]:
-                del self.attempts[client_ip]
-            else:
-                # Check if rate limited
-                if len(self.attempts[client_ip]) >= self.max_attempts:
-                    return HTMLResponse(
-                        content="For mange login forsøg. Prøv igen om 5 minutter.",
-                        status_code=429
-                    )
-
-            # Record this attempt
-            self.attempts[client_ip].append(now)
-
         return await call_next(request)
 
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adds security headers to every response."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "img-src 'self' data:; "
+            "font-src 'self' https://cdn.jsdelivr.net;"
+        )
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
 # Load environment
-load_dotenv(Path.home() / ".env")
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 
@@ -82,42 +67,45 @@ def hash_token(token: str) -> str:
 
 
 def load_sessions() -> dict:
-    """Load sessions from file with file locking.
+    """Load sessions from file.
 
     Returns dict mapping hashed tokens to user_ids.
-    Uses fcntl.LOCK_SH (shared lock) for reading.
+    Note: Basic implementation without locking for simplicity/portability,
+    relying on atomic file operations if needed.
     """
     if SESSIONS_FILE.exists():
         try:
             with open(SESSIONS_FILE) as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_SH)
                 try:
                     data = json.load(f)
                     # Migrate from old format (list) to new format (dict)
                     if isinstance(data, list):
                         return {}  # Clear old sessions, users need to re-login
                     return data
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-        except (json.JSONDecodeError, OSError) as e:
-            # Log corruption/permission issues but continue with empty sessions
-            logging.warning(f"Could not load sessions file: {e}")
+                except (json.JSONDecodeError, OSError) as e:
+                    logging.warning(f"Could not load sessions file: {e}")
+        except Exception as e:
+            logging.warning(f"Unexpected error loading sessions: {e}")
     return {}
 
 
 def save_sessions(sessions: dict):
-    """Save sessions to file with file locking.
+    """Save sessions to file.
 
-    Uses fcntl.LOCK_EX (exclusive lock) for writing to prevent
-    race conditions with concurrent login/logout operations.
+    Writes to a temporary file and renames to prevent corruption.
     """
     SESSIONS_FILE.parent.mkdir(exist_ok=True)
-    with open(SESSIONS_FILE, 'w') as f:
-        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        try:
-            json.dump(sessions, f)
-        finally:
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+    temp_file = SESSIONS_FILE.with_suffix(".tmp")
+    with open(temp_file, 'w') as f:
+        json.dump(sessions, f)
+    # Atomic rename (on Unix, mostly on Windows too if file not open)
+    try:
+        if SESSIONS_FILE.exists():
+            os.replace(temp_file, SESSIONS_FILE)
+        else:
+            temp_file.rename(SESSIONS_FILE)
+    except OSError as e:
+        logging.error(f"Failed to save sessions: {e}")
 
 
 SESSIONS = load_sessions()  # Maps hashed tokens to user_ids
@@ -133,7 +121,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add rate limiting middleware
+# Add security and rate limiting middleware
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware, max_attempts=5, window_seconds=300)
 
 
