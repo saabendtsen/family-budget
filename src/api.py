@@ -200,6 +200,7 @@ async def login(
     """Login with username and password."""
     user = db.authenticate_user(username, password)
     if user:
+        db.update_last_login(user.id)
         session_id = secrets.token_urlsafe(32)
         # Store hashed token mapped to user_id
         SESSIONS[hash_token(session_id)] = user.id
