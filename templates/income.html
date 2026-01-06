@@ -18,64 +18,70 @@
     </div>
     {% endif %}
 
-    <form method="post" action="/budget/income" class="space-y-4">
-        <!-- Person 1 -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <label class="block mb-3">
-                <span class="text-gray-500 dark:text-gray-400 text-sm">Navn</span>
-                <input
-                    type="text"
-                    name="person1_name"
-                    value="{{ incomes[0].person if incomes|length > 0 else 'Person 1' }}"
-                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    required
-                >
-            </label>
-            <label class="block">
-                <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
-                <div class="mt-1 relative">
-                    <input
-                        type="number"
-                        name="person1_amount"
-                        value="{{ incomes[0].amount_monthly|int if incomes|length > 0 else 0 }}"
-                        step="100"
-                        min="0"
-                        class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        required
+    <form method="post" action="/budget/income" class="space-y-4" id="income-form">
+        <!-- Dynamisk liste af indtægtskilder -->
+        <div id="income-list" class="space-y-4">
+            {% for income in incomes %}
+            <div class="income-item bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                <div class="flex justify-between items-start mb-3">
+                    <label class="flex-1">
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">Navn</span>
+                        <input
+                            type="text"
+                            name="income_name_{{ loop.index0 }}"
+                            value="{{ income.person }}"
+                            placeholder="F.eks. Løn, Børnepenge, Lejeindtægt"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            required
+                        >
+                    </label>
+                    <button
+                        type="button"
+                        onclick="removeIncome(this)"
+                        class="ml-2 mt-5 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Fjern indtægtskilde"
                     >
-                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
                 </div>
-            </label>
+                <label class="block">
+                    <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
+                    <div class="mt-1 relative">
+                        <input
+                            type="number"
+                            name="income_amount_{{ loop.index0 }}"
+                            value="{{ income.amount_monthly|int }}"
+                            step="100"
+                            min="0"
+                            class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            required
+                        >
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
+                    </div>
+                </label>
+            </div>
+            {% endfor %}
         </div>
 
-        <!-- Person 2 -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <label class="block mb-3">
-                <span class="text-gray-500 dark:text-gray-400 text-sm">Navn</span>
-                <input
-                    type="text"
-                    name="person2_name"
-                    value="{{ incomes[1].person if incomes|length > 1 else 'Person 2' }}"
-                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    required
-                >
-            </label>
-            <label class="block">
-                <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
-                <div class="mt-1 relative">
-                    <input
-                        type="number"
-                        name="person2_amount"
-                        value="{{ incomes[1].amount_monthly|int if incomes|length > 1 else 0 }}"
-                        step="100"
-                        min="0"
-                        class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        required
-                    >
-                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
-                </div>
-            </label>
+        <!-- Empty state når ingen indtægter -->
+        {% if incomes|length == 0 %}
+        <div id="empty-state" class="text-center py-8 text-gray-500 dark:text-gray-400">
+            <i data-lucide="wallet" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+            <p>Ingen indtægtskilder tilføjet endnu</p>
+            <p class="text-sm mt-1">Klik på knappen nedenfor for at tilføje</p>
         </div>
+        {% endif %}
+
+        <!-- Tilføj ny indtægt knap -->
+        <button
+            type="button"
+            onclick="addIncome()"
+            class="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 text-gray-500 dark:text-gray-400 hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary transition-colors flex items-center justify-center gap-2"
+            {% if demo_mode %}disabled{% endif %}
+        >
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            Tilføj indtægtskilde
+        </button>
 
         <button
             type="submit"
@@ -86,6 +92,96 @@
             Gem
         </button>
     </form>
+
+    <script>
+    let incomeIndex = {{ incomes|length }};
+
+    function addIncome() {
+        // Fjern empty state hvis det vises
+        const emptyState = document.getElementById('empty-state');
+        if (emptyState) emptyState.remove();
+
+        const template = `
+            <div class="income-item bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                <div class="flex justify-between items-start mb-3">
+                    <label class="flex-1">
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">Navn</span>
+                        <input
+                            type="text"
+                            name="income_name_${incomeIndex}"
+                            placeholder="F.eks. Løn, Børnepenge, Lejeindtægt"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            required
+                        >
+                    </label>
+                    <button
+                        type="button"
+                        onclick="removeIncome(this)"
+                        class="ml-2 mt-5 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Fjern indtægtskilde"
+                    >
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <label class="block">
+                    <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
+                    <div class="mt-1 relative">
+                        <input
+                            type="number"
+                            name="income_amount_${incomeIndex}"
+                            value="0"
+                            step="100"
+                            min="0"
+                            class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            required
+                        >
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
+                    </div>
+                </label>
+            </div>
+        `;
+
+        document.getElementById('income-list').insertAdjacentHTML('beforeend', template);
+        incomeIndex++;
+
+        // Refresh Lucide icons for the new element
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        // Focus på det nye navn-felt
+        const items = document.querySelectorAll('.income-item');
+        const lastItem = items[items.length - 1];
+        lastItem.querySelector('input[type="text"]').focus();
+    }
+
+    function removeIncome(btn) {
+        btn.closest('.income-item').remove();
+        reindexIncomes();
+
+        // Vis empty state hvis ingen indtægter tilbage
+        const items = document.querySelectorAll('.income-item');
+        if (items.length === 0) {
+            const emptyHtml = `
+                <div id="empty-state" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <i data-lucide="wallet" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                    <p>Ingen indtægtskilder tilføjet endnu</p>
+                    <p class="text-sm mt-1">Klik på knappen nedenfor for at tilføje</p>
+                </div>
+            `;
+            document.getElementById('income-list').insertAdjacentHTML('afterend', emptyHtml);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    function reindexIncomes() {
+        document.querySelectorAll('.income-item').forEach((item, i) => {
+            item.querySelector('[name^="income_name_"]').name = `income_name_${i}`;
+            item.querySelector('[name^="income_amount_"]').name = `income_amount_${i}`;
+        });
+        incomeIndex = document.querySelectorAll('.income-item').length;
+    }
+    </script>
 
     <!-- Info box -->
     <div class="mt-6 bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 flex gap-3">

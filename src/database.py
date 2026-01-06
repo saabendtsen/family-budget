@@ -250,6 +250,14 @@ def get_total_income(user_id: int) -> float:
     return total
 
 
+def delete_all_income(user_id: int):
+    """Delete all income entries for a user."""
+    conn = get_connection()
+    conn.execute("DELETE FROM income WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
 # =============================================================================
 # Expense operations
 # =============================================================================
