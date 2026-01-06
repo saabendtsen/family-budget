@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-01-06T02:01:11.556789",
+  "project": "family-budget",
+  "commit": "5d5972d13d02acbd2b0e4ee7b0a7e1012f490dc2",
+  "previous_commit": "02f5225a436ca56b00de430a0de02e0639721420",
+  "files_reviewed": 2,
+  "summary": {
+    "total_issues": 11,
+    "auto_fixable": 2,
+    "by_severity": {
+      "error": 5,
+      "warning": 5,
+      "info": 1
+    },
+    "by_category": {
+      "bug": 4,
+      "security": 4,
+      "error_handling": 1,
+      "performance": 1,
+      "unused": 1
+    }
+  },
+  "issues": [
+    {
+      "line": 9,
+      "severity": "warning",
+      "category": "bug",
+      "message": "Mappen 'data/' er markeret som en critical path, men dens indhold er gitignored. Dette kan medf\u00f8re fejl i CI/CD eller produktionsmilj\u00f8er, hvis koden forventer at mappen eksisterer.",
+      "auto_fixable": false,
+      "file": "family-budget/.agent/manifest.yaml"
+    },
+    {
+      "line": 9,
+      "severity": "warning",
+      "category": "security",
+      "message": "Lagring af databasefiler direkte i projektmappen ('data/') udg\u00f8r en sikkerhedsrisiko, da de potentielt kan serveres som statiske filer ved fejlkonfiguration af webserveren.",
+      "auto_fixable": false,
+      "file": "family-budget/.agent/manifest.yaml"
+    },
+    {
+      "line": 21,
+      "severity": "error",
+      "category": "security",
+      "message": "python-multipart versioner f\u00f8r 0.0.12 er s\u00e5rbare over for Denial of Service (DoS) angreb via CPU-exhaustion. Opdater til mindst 0.0.12.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "  - python-multipart>=0.0.7,<1.0.0",
+        "new": "  - python-multipart>=0.0.12,<1.0.0"
+      },
+      "file": "family-budget/.agent/manifest.yaml"
+    },
+    {
+      "line": 97,
+      "severity": "error",
+      "category": "bug",
+      "message": "save_sessions overskriver hele filen med data fra hukommelsen. I et milj\u00f8 med flere workers (f.eks. Gunicorn/Uvicorn workers) vil dette medf\u00f8re 'lost updates', hvor sessioner oprettet i \u00e9n proces slettes af en anden.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 115,
+      "severity": "error",
+      "category": "bug",
+      "message": "SESSIONS indl\u00e6ses kun \u00e9n gang ved opstart. \u00c6ndringer foretaget i sessions.json af andre processer vil aldrig blive set af den aktuelle proces, f\u00f8r den genstartes.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 98,
+      "severity": "error",
+      "category": "error_handling",
+      "message": "Filen \u00e5bnes med 'w' f\u00f8r fcntl.flock kaldes. Dette trunkerer (sletter indholdet af) filen \u00f8jeblikkeligt. Hvis processen crasher efter open men f\u00f8r json.dump, mistes alle sessioner permanent.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 41,
+      "severity": "warning",
+      "category": "performance",
+      "message": "Memory leak i RateLimitMiddleware. Reng\u00f8ring af 'self.attempts' sker kun for den aktuelle klients IP. IPs der aldrig vender tilbage vil optage hukommelse i ordbogen p\u00e5 ubestemt tid.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 314,
+      "severity": "warning",
+      "category": "bug",
+      "message": "Indkomst opdateres i to separate database-kald uden en transaktion. Hvis det andet kald fejler, vil systemet efterlades i en inkonsistent tilstand.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 382,
+      "severity": "error",
+      "category": "security",
+      "message": "Kategorier er globale, men enhver autentificeret bruger kan slette eller redigere dem. Dette tillader en bruger at \u00f8del\u00e6gge data (kategoristruktur) for alle andre brugere i systemet.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 182,
+      "severity": "warning",
+      "category": "security",
+      "message": "Manglende CSRF-beskyttelse p\u00e5 POST-endpoints. Selvom SameSite=Lax yder en vis beskyttelse, b\u00f8r f\u00f8lsomme handlinger som login og budget\u00e6ndringer beskyttes med anti-CSRF tokens.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 11,
+      "severity": "info",
+      "category": "unused",
+      "message": "Importen af sqlite3 bruges kun til type-checking eller error-catching, men er ikke n\u00f8dvendig i dette omfang hvis db-modulet h\u00e5ndterer fejlene korrekt.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "import sqlite3",
+        "new": ""
+      },
+      "file": "family-budget/src/api.py"
+    }
+  ]
+}
