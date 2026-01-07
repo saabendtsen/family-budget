@@ -287,7 +287,7 @@ def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
     )
     row = cur.fetchone()
     conn.close()
-    return Expense(**dict(row)) if row else None
+    return Expense(**dict(row)) if row is not None else None
 
 
 def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str) -> int:
