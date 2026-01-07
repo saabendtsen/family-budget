@@ -1,0 +1,33 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Testing
+tests/
+e2e/
+pytest.ini
+
+# Data (mounted as volume)
+data/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Docs
+*.md
+LICENSE
+
+# Beads
+.beads/
+
+# Agent
+.agent/

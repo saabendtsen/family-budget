@@ -1,0 +1,12 @@
+services:
+  family-budget:
+    build: .
+    container_name: family-budget
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    volumes:
+      # Persist database outside container
+      - ./data:/app/data
+    environment:
+      - TZ=Europe/Copenhagen
