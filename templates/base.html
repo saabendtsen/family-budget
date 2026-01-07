@@ -39,8 +39,8 @@
 
     {% block content %}{% endblock %}
 
-    {% if (show_nav is not defined or show_nav) and not demo_mode %}
-    <!-- Bottom Navigation (hidden in demo mode) -->
+    {% if show_nav is not defined or show_nav %}
+    <!-- Bottom Navigation -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 safe-area-inset-bottom">
         <div class="max-w-md mx-auto flex justify-around items-center">
             <a href="/budget/" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'dashboard' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
@@ -67,6 +67,203 @@
         // Initialize Lucide icons
         lucide.createIcons();
     </script>
+
+    {% if demo_mode %}
+    <script>
+        // DemoStateManager - manages localStorage for demo mode CRUD operations
+        const DemoState = {
+            STORAGE_KEY: 'family_budget_demo',
+
+            // Default demo data (matches database.py DEMO_INCOME and DEMO_EXPENSES)
+            DEFAULT_DATA: {
+                income: [
+                    { id: 1, person: "Person 1", amount_monthly: 28000 },
+                    { id: 2, person: "Person 2", amount_monthly: 22000 }
+                ],
+                expenses: [
+                    { id: 1, name: "Husleje/boliglån", category: "Bolig", amount: 12000, frequency: "monthly" },
+                    { id: 2, name: "Ejendomsskat", category: "Bolig", amount: 18000, frequency: "yearly" },
+                    { id: 3, name: "Varme", category: "Forbrug", amount: 800, frequency: "monthly" },
+                    { id: 4, name: "El", category: "Forbrug", amount: 600, frequency: "monthly" },
+                    { id: 5, name: "Vand", category: "Forbrug", amount: 400, frequency: "monthly" },
+                    { id: 6, name: "Internet", category: "Forbrug", amount: 299, frequency: "monthly" },
+                    { id: 7, name: "Bil - lån", category: "Transport", amount: 2500, frequency: "monthly" },
+                    { id: 8, name: "Benzin", category: "Transport", amount: 1500, frequency: "monthly" },
+                    { id: 9, name: "Vægtafgift", category: "Transport", amount: 3600, frequency: "yearly" },
+                    { id: 10, name: "Bilforsikring", category: "Transport", amount: 6000, frequency: "yearly" },
+                    { id: 11, name: "Institution", category: "Børn", amount: 3200, frequency: "monthly" },
+                    { id: 12, name: "Fritidsaktiviteter", category: "Børn", amount: 400, frequency: "monthly" },
+                    { id: 13, name: "Dagligvarer", category: "Mad", amount: 6000, frequency: "monthly" },
+                    { id: 14, name: "Indboforsikring", category: "Forsikring", amount: 1800, frequency: "yearly" },
+                    { id: 15, name: "Ulykkesforsikring", category: "Forsikring", amount: 1200, frequency: "yearly" },
+                    { id: 16, name: "Netflix", category: "Abonnementer", amount: 129, frequency: "monthly" },
+                    { id: 17, name: "Spotify", category: "Abonnementer", amount: 99, frequency: "monthly" },
+                    { id: 18, name: "Fitness", category: "Abonnementer", amount: 299, frequency: "monthly" },
+                    { id: 19, name: "Opsparing", category: "Opsparing", amount: 3000, frequency: "monthly" },
+                    { id: 20, name: "Telefon", category: "Andet", amount: 199, frequency: "monthly" }
+                ],
+                nextIncomeId: 3,
+                nextExpenseId: 21
+            },
+
+            // Initialize localStorage with default data if empty
+            init() {
+                if (!this.isAvailable()) {
+                    console.warn('localStorage not available - demo mode will be read-only');
+                    return false;
+                }
+                if (!localStorage.getItem(this.STORAGE_KEY)) {
+                    this.save(this.DEFAULT_DATA);
+                }
+                return true;
+            },
+
+            // Check if localStorage is available
+            isAvailable() {
+                try {
+                    localStorage.setItem('__test__', '1');
+                    localStorage.removeItem('__test__');
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            },
+
+            // Get all data
+            getData() {
+                try {
+                    const data = localStorage.getItem(this.STORAGE_KEY);
+                    return data ? JSON.parse(data) : this.DEFAULT_DATA;
+                } catch (e) {
+                    console.error('Error reading demo data:', e);
+                    return this.DEFAULT_DATA;
+                }
+            },
+
+            // Save all data
+            save(data) {
+                try {
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+                    return true;
+                } catch (e) {
+                    console.error('Error saving demo data:', e);
+                    return false;
+                }
+            },
+
+            // Income operations
+            getIncome() {
+                return this.getData().income;
+            },
+
+            setIncome(incomeList) {
+                const data = this.getData();
+                // Assign IDs to income items
+                data.income = incomeList.map((item, index) => ({
+                    id: index + 1,
+                    person: item.person,
+                    amount_monthly: parseFloat(item.amount_monthly) || 0
+                }));
+                data.nextIncomeId = data.income.length + 1;
+                this.save(data);
+            },
+
+            // Expense operations
+            getExpenses() {
+                return this.getData().expenses;
+            },
+
+            addExpense(name, category, amount, frequency) {
+                const data = this.getData();
+                const newExpense = {
+                    id: data.nextExpenseId,
+                    name: name,
+                    category: category,
+                    amount: parseFloat(amount),
+                    frequency: frequency
+                };
+                data.expenses.push(newExpense);
+                data.nextExpenseId++;
+                this.save(data);
+                return newExpense.id;
+            },
+
+            updateExpense(id, name, category, amount, frequency) {
+                const data = this.getData();
+                const index = data.expenses.findIndex(e => e.id === parseInt(id));
+                if (index !== -1) {
+                    data.expenses[index] = {
+                        id: parseInt(id),
+                        name: name,
+                        category: category,
+                        amount: parseFloat(amount),
+                        frequency: frequency
+                    };
+                    this.save(data);
+                    return true;
+                }
+                return false;
+            },
+
+            deleteExpense(id) {
+                const data = this.getData();
+                data.expenses = data.expenses.filter(e => e.id !== parseInt(id));
+                this.save(data);
+            },
+
+            // Get expenses grouped by category
+            getExpensesByCategory() {
+                const expenses = this.getExpenses();
+                const grouped = {};
+                expenses.forEach(expense => {
+                    if (!grouped[expense.category]) {
+                        grouped[expense.category] = [];
+                    }
+                    grouped[expense.category].push(expense);
+                });
+                return grouped;
+            },
+
+            // Calculate totals
+            getTotalIncome() {
+                return this.getIncome().reduce((sum, i) => sum + i.amount_monthly, 0);
+            },
+
+            getTotalExpenses() {
+                return this.getExpenses().reduce((sum, e) => {
+                    const monthly = e.frequency === 'yearly' ? e.amount / 12 : e.amount;
+                    return sum + monthly;
+                }, 0);
+            },
+
+            getCategoryTotals() {
+                const totals = {};
+                this.getExpenses().forEach(expense => {
+                    const monthly = expense.frequency === 'yearly' ? expense.amount / 12 : expense.amount;
+                    totals[expense.category] = (totals[expense.category] || 0) + monthly;
+                });
+                return totals;
+            },
+
+            // Export data for migration
+            exportForMigration() {
+                return JSON.stringify({
+                    income: this.getIncome(),
+                    expenses: this.getExpenses()
+                });
+            },
+
+            // Clear demo data (after migration)
+            clear() {
+                localStorage.removeItem(this.STORAGE_KEY);
+            }
+        };
+
+        // Initialize on page load
+        DemoState.init();
+    </script>
+    {% endif %}
+
     {% block scripts %}{% endblock %}
 </body>
 </html>
