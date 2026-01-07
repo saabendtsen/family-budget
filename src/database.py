@@ -173,9 +173,16 @@ def init_db():
             username TEXT NOT NULL UNIQUE COLLATE NOCASE,
             password_hash TEXT NOT NULL,
             salt TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP
         )
     """)
+
+    # Migration: Add last_login column to existing databases
+    cur.execute("PRAGMA table_info(users)")
+    columns = [col[1] for col in cur.fetchall()]
+    if "last_login" not in columns:
+        cur.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
 
     # Insert default categories
     for name, icon in DEFAULT_CATEGORIES:
@@ -512,6 +519,17 @@ def authenticate_user(username: str, password: str) -> Optional[User]:
     if user and verify_password(password, user.password_hash, user.salt):
         return user
     return None
+
+
+def update_last_login(user_id: int):
+    """Update last_login timestamp for a user."""
+    conn = get_connection()
+    conn.execute(
+        "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
+        (user_id,)
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_user_count() -> int:
