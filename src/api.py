@@ -644,6 +644,17 @@ async def help_page(request: Request):
 
 
 # =============================================================================
+# Public API (for uptime dashboard)
+# =============================================================================
+
+@app.get("/budget/api/stats")
+async def api_stats():
+    """Public stats endpoint for uptime dashboard."""
+    user_count = db.get_user_count()
+    return {"users": user_count}
+
+
+# =============================================================================
 # Run with: python -m src.api
 # =============================================================================
 
