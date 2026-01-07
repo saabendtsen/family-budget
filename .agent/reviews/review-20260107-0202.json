@@ -1,0 +1,168 @@
+{
+  "timestamp": "2026-01-07T02:02:37.131017",
+  "project": "family-budget",
+  "commit": "c6c11b19998ed21843e1ab146a133d7126ed544c",
+  "previous_commit": "5d5972d13d02acbd2b0e4ee7b0a7e1012f490dc2",
+  "files_reviewed": 3,
+  "summary": {
+    "total_issues": 16,
+    "auto_fixable": 4,
+    "by_severity": {
+      "error": 8,
+      "warning": 6,
+      "info": 2
+    },
+    "by_category": {
+      "security": 5,
+      "bug": 6,
+      "performance": 4,
+      "error_handling": 1
+    }
+  },
+  "issues": [
+    {
+      "line": 9,
+      "severity": "warning",
+      "category": "security",
+      "message": "Inkludering af 'data/' i 'critical_paths' er risikabelt, da denne mappe ofte indeholder lokale databaser eller f\u00f8lsomme data, som b\u00f8r holdes adskilt fra versionsstyret kode.",
+      "auto_fixable": false,
+      "file": "family-budget/.agent/manifest.yaml"
+    },
+    {
+      "line": 21,
+      "severity": "error",
+      "category": "security",
+      "message": "python-multipart version 0.0.12 er s\u00e5rbar over for Denial of Service (CVE-2024-52304). Opdater til mindst 0.0.18.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "  - python-multipart>=0.0.12,<1.0.0",
+        "new": "  - python-multipart>=0.0.18,<1.0.0"
+      },
+      "file": "family-budget/.agent/manifest.yaml"
+    },
+    {
+      "line": 7,
+      "severity": "warning",
+      "category": "bug",
+      "message": "'fcntl' er Unix-specifikt og vil f\u00e5 koden til at fejle p\u00e5 Windows-systemer.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 43,
+      "severity": "warning",
+      "category": "performance",
+      "message": "Rate limiting gemmes i hukommelsen (in-memory). I et produktionsmilj\u00f8 med flere workers (f.eks. Gunicorn) vil begr\u00e6nsningen ikke blive delt p\u00e5 tv\u00e6rs af processer.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 110,
+      "severity": "error",
+      "category": "bug",
+      "message": "Global 'SESSIONS' variabel indl\u00e6ses kun ved opstart. Hvis flere instanser af appen k\u00f8rer, vil de overskrive hinandens sessions i JSON-filen, hvilket f\u00f8rer til datatab (race condition).",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 213,
+      "severity": "info",
+      "category": "security",
+      "message": "Minimumskrav til adgangskode (6 tegn) er for lavt til moderne sikkerhedsstandarder.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "if len(password) < 6:",
+        "new": "if len(password) < 12:"
+      },
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 345,
+      "severity": "error",
+      "category": "bug",
+      "message": "Opdatering af indkomst er ikke atomar. Hvis 'add_income' fejler i loopet, er brugerens data allerede slettet via 'delete_all_income'. B\u00f8r k\u00f8re i en database-transaktion.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 412,
+      "severity": "warning",
+      "category": "performance",
+      "message": "N+1 query problem: 'db.get_category_usage_count' kaldes i et loop, hvilket skaber mange database-kald. B\u00f8r optimeres til \u00e9t JOIN-kald.",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 446,
+      "severity": "error",
+      "category": "security",
+      "message": "Kategorier er globale, men enhver logget ind bruger kan slette dem. Dette tillader en bruger at \u00f8del\u00e6gge data for alle andre brugere (Broken Function Level Authorization).",
+      "auto_fixable": false,
+      "file": "family-budget/src/api.py"
+    },
+    {
+      "line": 104,
+      "severity": "error",
+      "category": "security",
+      "message": "SQLite h\u00e5ndh\u00e6ver ikke Foreign Keys som standard. Uden 'PRAGMA foreign_keys = ON' vil constraints p\u00e5 user_id og categories blive ignoreret.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "    conn = sqlite3.connect(DB_PATH)",
+        "new": "    conn = sqlite3.connect(DB_PATH)\n    conn.execute(\"PRAGMA foreign_keys = ON\")"
+      },
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 171,
+      "severity": "error",
+      "category": "error_handling",
+      "message": "Databaseforbindelser l\u00e6kkes hvis der opst\u00e5r en fejl f\u00f8r conn.close(). Brug 'with' context manager eller try/finally i alle database-funktioner.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 331,
+      "severity": "error",
+      "category": "bug",
+      "message": "update_category er ikke atomar. Hvis opdateringen af 'expenses' lykkes, men opdateringen af 'categories' fejler, efterlades databasen i en inkonsistent tilstand. Brug en transaktion.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 335,
+      "severity": "warning",
+      "category": "performance",
+      "message": "update_category kalder get_category_by_id, som \u00e5bner en helt ny forbindelse mens den nuv\u00e6rende stadig er \u00e5ben. Dette er ineffektivt og kan skabe locking issues.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 131,
+      "severity": "warning",
+      "category": "bug",
+      "message": "Tabellen 'expenses' refererer til kategorier via tekst-navn i stedet for ID. Dette g\u00f8r omd\u00f8bning af kategorier fejlf\u00f8lsom og bryder normalisering.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 254,
+      "severity": "error",
+      "category": "bug",
+      "message": "get_expense_by_id crasher hvis ingen r\u00e6kke findes, da dict(None) fejler. Tjek om row er None f\u00f8r konvertering.",
+      "auto_fixable": true,
+      "fix": {
+        "old": "    return Expense(**dict(row)) if row else None",
+        "new": "    return Expense(**dict(row)) if row is not None else None"
+      },
+      "file": "family-budget/src/database.py"
+    },
+    {
+      "line": 102,
+      "severity": "info",
+      "category": "performance",
+      "message": "SQLite forbindelser b\u00f8r i en web-kontekst ofte s\u00e6ttes med 'check_same_thread=False' hvis de deles p\u00e5 tv\u00e6rs af requests, eller h\u00e5ndteres via en pool.",
+      "auto_fixable": false,
+      "file": "family-budget/src/database.py"
+    }
+  ]
+}

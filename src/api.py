@@ -383,25 +383,35 @@ async def income_page(request: Request):
 
 
 @app.post("/budget/income")
-async def update_income(
-    request: Request,
-    person1_name: str = Form(...),
-    person1_amount: float = Form(...),
-    person2_name: str = Form(...),
-    person2_amount: float = Form(...)
-):
-    """Update income values."""
+async def update_income(request: Request):
+    """Update income values - handles dynamic number of income sources."""
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
     if is_demo_mode(request):
         return RedirectResponse(url="/budget/", status_code=303)
 
     user_id = get_user_id(request)
+    form = await request.form()
+
     try:
-        db.update_income(user_id, person1_name, person1_amount)
-        db.update_income(user_id, person2_name, person2_amount)
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating income: {e}")
+        # Parse dynamic form fields: income_name_0, income_amount_0, etc.
+        incomes_to_save = []
+        i = 0
+        while f"income_name_{i}" in form:
+            name = form.get(f"income_name_{i}", "").strip()
+            amount_str = form.get(f"income_amount_{i}", "0")
+            if name:  # Only save if name is provided
+                amount = float(amount_str) if amount_str else 0
+                incomes_to_save.append((name, amount))
+            i += 1
+
+        # Clear existing and save new
+        db.delete_all_income(user_id)
+        for name, amount in incomes_to_save:
+            db.add_income(user_id, name, amount)
+
+    except (ValueError, sqlite3.Error) as e:
+        logger.error(f"Error updating income: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved opdatering af indkomst")
 
     return RedirectResponse(url="/budget/", status_code=303)
