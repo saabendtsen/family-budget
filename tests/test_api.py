@@ -217,9 +217,9 @@ class TestIncomeEndpoints:
         response = authenticated_client.post(
             "/budget/income",
             data={
-                "person1_name": "Søren",
+                "person1_name": "Alice",
                 "person1_amount": "35000",
-                "person2_name": "Anne",
+                "person2_name": "Bob",
                 "person2_amount": "28000"
             },
             follow_redirects=False
