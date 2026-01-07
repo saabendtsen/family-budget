@@ -1,27 +1,36 @@
 #!/bin/bash
-set -e
+# Auto-deploy script for family-budget
+# Checks for new commits on origin/master and deploys if found
 
+set -e
 cd ~/projects/family-budget
 
-echo "=== Pulling latest code ==="
-git fetch origin master
+# Fetch latest from remote
+git fetch origin master --quiet
+
+# Get current and remote commit
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/master)
+
+# Exit if already up to date
+if [ "$LOCAL" = "$REMOTE" ]; then
+    exit 0
+fi
+
+echo "[$(date)] New commits detected, deploying..."
+
+# Pull and rebuild
 git reset --hard origin/master
-
-echo "=== Building Docker image ==="
-docker compose build
-
-echo "=== Restarting container ==="
+docker compose build --quiet
 docker compose down
 docker compose up -d
 
-echo "=== Waiting for startup ==="
+# Health check
 sleep 3
-
-echo "=== Health check ==="
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:8086/budget/login | grep -q "200"; then
-    echo "✅ Deploy successful!"
+if curl -sf http://localhost:8086/budget/login > /dev/null; then
+    echo "[$(date)] ✅ Deploy successful: $(git log -1 --oneline)"
 else
-    echo "❌ Health check failed!"
-    docker compose logs --tail 20
+    echo "[$(date)] ❌ Health check failed!"
+    docker compose logs --tail 10
     exit 1
 fi
