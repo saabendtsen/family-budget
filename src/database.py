@@ -114,6 +114,16 @@ class User:
     username: str
     password_hash: str
     salt: str
+    email: str = None
+
+
+@dataclass
+class PasswordResetToken:
+    id: int
+    user_id: int
+    token_hash: str
+    expires_at: str
+    used: bool = False
 
 
 def get_connection() -> sqlite3.Connection:
@@ -173,9 +183,28 @@ def init_db():
             username TEXT NOT NULL UNIQUE COLLATE NOCASE,
             password_hash TEXT NOT NULL,
             salt TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            email TEXT
         )
     """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Migration: Add email column to existing databases
+    cur.execute("PRAGMA table_info(users)")
+    columns = [col[1] for col in cur.fetchall()]
+    if "email" not in columns:
+        cur.execute("ALTER TABLE users ADD COLUMN email TEXT")
 
     # Insert default categories
     for name, icon in DEFAULT_CATEGORIES:
@@ -466,7 +495,7 @@ def get_category_usage_count(category_name: str) -> int:
 # User operations
 # =============================================================================
 
-def create_user(username: str, password: str) -> Optional[int]:
+def create_user(username: str, password: str, email: str = None) -> Optional[int]:
     """Create a new user. Returns user ID or None if username exists.
 
     Uses try/except for IntegrityError to handle race conditions where
@@ -478,10 +507,11 @@ def create_user(username: str, password: str) -> Optional[int]:
     # Hash password and attempt to create user
     # The UNIQUE constraint on username will raise IntegrityError if duplicate
     password_hash, salt = hash_password(password)
+    email_lower = email.lower().strip() if email else None
     try:
         cur.execute(
-            "INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)",
-            (username, password_hash, salt)
+            "INSERT INTO users (username, password_hash, salt, email) VALUES (?, ?, ?, ?)",
+            (username, password_hash, salt, email_lower)
         )
         user_id = cur.lastrowid
         conn.commit()
@@ -498,12 +528,61 @@ def get_user_by_username(username: str) -> Optional[User]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, username, password_hash, salt FROM users WHERE username = ?",
+        "SELECT id, username, password_hash, salt, email FROM users WHERE username = ?",
         (username,)
     )
     row = cur.fetchone()
     conn.close()
     return User(**dict(row)) if row else None
+
+
+def get_user_by_email(email: str) -> Optional[User]:
+    """Get user by email."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, username, password_hash, salt, email FROM users WHERE email = ?",
+        (email.lower(),)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return User(**dict(row)) if row else None
+
+
+def get_user_by_id(user_id: int) -> Optional[User]:
+    """Get user by ID."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, username, password_hash, salt, email FROM users WHERE id = ?",
+        (user_id,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return User(**dict(row)) if row else None
+
+
+def update_user_email(user_id: int, email: str):
+    """Update email for a user."""
+    conn = get_connection()
+    conn.execute(
+        "UPDATE users SET email = ? WHERE id = ?",
+        (email.lower() if email else None, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def update_user_password(user_id: int, password: str):
+    """Update password for a user."""
+    password_hash, salt = hash_password(password)
+    conn = get_connection()
+    conn.execute(
+        "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?",
+        (password_hash, salt, user_id)
+    )
+    conn.commit()
+    conn.close()
 
 
 def authenticate_user(username: str, password: str) -> Optional[User]:
@@ -522,6 +601,56 @@ def get_user_count() -> int:
     count = cur.fetchone()[0]
     conn.close()
     return count
+
+
+# =============================================================================
+# Password reset token operations
+# =============================================================================
+
+def create_password_reset_token(user_id: int, token_hash: str, expires_at: str) -> int:
+    """Create a password reset token. Returns token ID."""
+    conn = get_connection()
+    cur = conn.cursor()
+    # Invalidate any existing tokens for this user
+    cur.execute("UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?", (user_id,))
+    # Create new token
+    cur.execute(
+        """INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+           VALUES (?, ?, ?)""",
+        (user_id, token_hash, expires_at)
+    )
+    token_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return token_id
+
+
+def get_valid_reset_token(token_hash: str) -> Optional[PasswordResetToken]:
+    """Get a valid (unused, not expired) reset token."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """SELECT id, user_id, token_hash, expires_at, used
+           FROM password_reset_tokens
+           WHERE token_hash = ? AND used = 0 AND expires_at > datetime('now')""",
+        (token_hash,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    if row:
+        return PasswordResetToken(
+            id=row[0], user_id=row[1], token_hash=row[2],
+            expires_at=row[3], used=bool(row[4])
+        )
+    return None
+
+
+def mark_reset_token_used(token_id: int):
+    """Mark a reset token as used."""
+    conn = get_connection()
+    conn.execute("UPDATE password_reset_tokens SET used = 1 WHERE id = ?", (token_id,))
+    conn.commit()
+    conn.close()
 
 
 # =============================================================================

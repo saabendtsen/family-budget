@@ -5,9 +5,13 @@ import json
 import logging
 import os
 import secrets
+import smtplib
 import sqlite3
 import time
 from collections import defaultdict
+from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,6 +21,9 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import database as db
+
+# Load environment variables
+load_dotenv(Path.home() / ".env")
 
 # Initialize database at startup
 db.init_db()
@@ -246,6 +253,183 @@ async def login(
         )
 
 
+# =============================================================================
+# Password Reset
+# =============================================================================
+
+def send_password_reset_email(to_email: str, username: str, reset_link: str) -> bool:
+    """Send password reset email via SMTP. Returns True if successful."""
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    from_email = os.getenv("SMTP_FROM", smtp_user)
+
+    if not smtp_user or not smtp_pass:
+        logger.error("SMTP credentials not configured")
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Nulstil din adgangskode - Budget"
+    msg["From"] = from_email
+    msg["To"] = to_email
+
+    text_content = f"""
+Hej {username},
+
+Du har anmodet om at nulstille din adgangskode til Budget.
+
+Klik på linket nedenfor for at vælge en ny adgangskode:
+{reset_link}
+
+Linket udløber om 1 time.
+
+Hvis du ikke har anmodet om dette, kan du ignorere denne email.
+
+Med venlig hilsen,
+Budget
+"""
+
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .button {{ display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0; }}
+        .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Nulstil din adgangskode</h2>
+        <p>Hej {username},</p>
+        <p>Du har anmodet om at nulstille din adgangskode til Budget.</p>
+        <p>Klik på knappen nedenfor for at vælge en ny adgangskode:</p>
+        <a href="{reset_link}" class="button">Nulstil adgangskode</a>
+        <p><small>Linket udløber om 1 time.</small></p>
+        <p>Hvis du ikke har anmodet om dette, kan du ignorere denne email.</p>
+        <div class="footer">
+            <p>Med venlig hilsen,<br>Budget</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    msg.attach(MIMEText(text_content, "plain"))
+    msg.attach(MIMEText(html_content, "html"))
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+        logger.info(f"Password reset email sent to {to_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        return False
+
+
+@app.get("/budget/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page(request: Request):
+    """Show forgot password page."""
+    return templates.TemplateResponse("forgot_password.html", {"request": request})
+
+
+@app.post("/budget/forgot-password")
+async def forgot_password(request: Request, identifier: str = Form(...)):
+    """Handle forgot password request."""
+    identifier = identifier.strip()
+
+    # Find user by username or email
+    user = db.get_user_by_username(identifier)
+    if not user:
+        user = db.get_user_by_email(identifier)
+
+    if user and user.email:
+        # Generate reset token
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+        db.create_password_reset_token(user.id, token_hash, expires_at)
+
+        # Build reset link
+        host = request.headers.get("host", "localhost:8086")
+        scheme = "https" if "localhost" not in host else "http"
+        reset_link = f"{scheme}://{host}/budget/reset-password/{token}"
+
+        # Send email
+        send_password_reset_email(user.email, user.username, reset_link)
+
+    # Always show success (don't reveal if user exists)
+    return templates.TemplateResponse(
+        "forgot_password.html",
+        {"request": request, "success": True}
+    )
+
+
+@app.get("/budget/reset-password/{token}", response_class=HTMLResponse)
+async def reset_password_page(request: Request, token: str):
+    """Show reset password page."""
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    reset_token = db.get_valid_reset_token(token_hash)
+
+    if not reset_token:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "invalid_token": True}
+        )
+
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {"request": request, "token": token}
+    )
+
+
+@app.post("/budget/reset-password/{token}")
+async def reset_password(
+    request: Request,
+    token: str,
+    password: str = Form(...),
+    password_confirm: str = Form(...)
+):
+    """Handle password reset."""
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    reset_token = db.get_valid_reset_token(token_hash)
+
+    if not reset_token:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "invalid_token": True}
+        )
+
+    # Validate passwords
+    if len(password) < 6:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "token": token, "error": "Adgangskode skal være mindst 6 tegn"}
+        )
+
+    if password != password_confirm:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "token": token, "error": "Adgangskoderne matcher ikke"}
+        )
+
+    # Update password and mark token as used
+    db.update_user_password(reset_token.user_id, password)
+    db.mark_reset_token_used(reset_token.id)
+
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {"request": request, "success": True}
+    )
+
+
 @app.get("/budget/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     """Show registration page."""
@@ -259,7 +443,8 @@ async def register(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-    password_confirm: str = Form(...)
+    password_confirm: str = Form(...),
+    email: str = Form("")
 ):
     """Register a new user."""
     # Validate input
@@ -281,8 +466,16 @@ async def register(
             {"request": request, "error": "Adgangskoderne matcher ikke"}
         )
 
+    # Validate email format if provided
+    email = email.strip() if email else None
+    if email and "@" not in email:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Ugyldig email-adresse"}
+        )
+
     # Create user
-    new_user_id = db.create_user(username, password)
+    new_user_id = db.create_user(username, password, email)
     if new_user_id is None:
         return templates.TemplateResponse(
             "register.html",
@@ -624,6 +817,72 @@ async def delete_category(request: Request, category_id: int):
         logger.error(f"Database error deleting category: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved sletning af kategorien")
     return RedirectResponse(url="/budget/categories", status_code=303)
+
+
+# =============================================================================
+# Help
+# =============================================================================
+
+# =============================================================================
+# Settings
+# =============================================================================
+
+@app.get("/budget/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """Account settings page."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/", status_code=303)
+
+    user_id = get_user_id(request)
+    user = db.get_user_by_id(user_id)
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "username": user.username if user else "Ukendt",
+            "email": user.email if user else None
+        }
+    )
+
+
+@app.post("/budget/settings/email")
+async def update_email(request: Request, email: str = Form("")):
+    """Update user email."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/", status_code=303)
+
+    user_id = get_user_id(request)
+    user = db.get_user_by_id(user_id)
+    email = email.strip() if email else None
+
+    # Validate email format
+    if email and "@" not in email:
+        return templates.TemplateResponse(
+            "settings.html",
+            {
+                "request": request,
+                "username": user.username if user else "Ukendt",
+                "email": user.email if user else None,
+                "error": "Ugyldig email-adresse"
+            }
+        )
+
+    db.update_user_email(user_id, email)
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "username": user.username if user else "Ukendt",
+            "email": email,
+            "success": "Email opdateret"
+        }
+    )
 
 
 # =============================================================================
