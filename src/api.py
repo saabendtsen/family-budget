@@ -29,6 +29,41 @@ logger = logging.getLogger(__name__)
 # Rate limiting
 # =============================================================================
 
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple rate limiting for login attempts."""
+
+    def __init__(self, app, max_attempts: int = 5, window_seconds: int = 300):
+        super().__init__(app)
+        self.max_attempts = max_attempts
+        self.window_seconds = window_seconds
+        self.attempts: dict[str, list[float]] = defaultdict(list)
+
+    async def dispatch(self, request: Request, call_next):
+        # Only rate limit login POST requests
+        if request.url.path == "/budget/login" and request.method == "POST":
+            client_ip = request.client.host if request.client else "unknown"
+            now = time.time()
+
+            # Clean old attempts for this IP
+            self.attempts[client_ip] = [
+                t for t in self.attempts[client_ip]
+                if now - t < self.window_seconds
+            ]
+
+            # Remove IP key entirely if no recent attempts (prevents memory leak)
+            if not self.attempts[client_ip]:
+                del self.attempts[client_ip]
+            else:
+                # Check if rate limited
+                if len(self.attempts[client_ip]) >= self.max_attempts:
+                    return HTMLResponse(
+                        content="For mange login forsøg. Prøv igen om 5 minutter.",
+                        status_code=429
+                    )
+
+            # Record this attempt
+            self.attempts[client_ip].append(now)
+
         return await call_next(request)
 
 
