@@ -129,7 +129,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Create app
 app = FastAPI(
     title="Family Budget",
-    description="Budget overview for Søren and Anne",
+    description="A simple family budget tracker",
     version="1.0.0"
 )
 

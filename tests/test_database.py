@@ -72,18 +72,18 @@ class TestIncomeOperations:
     def test_update_income(self, db_module):
         """update_income should change the amount or create if not exists."""
         user_id = db_module.create_user("incometest3", "testpass")
-        db_module.update_income(user_id, "Søren", 35000)
+        db_module.update_income(user_id, "Alice", 35000)
 
         incomes = db_module.get_all_income(user_id)
-        soeren_income = next((i for i in incomes if i.person == "Søren"), None)
-        assert soeren_income is not None
-        assert soeren_income.amount_monthly == 35000
+        alice_income = next((i for i in incomes if i.person == "Alice"), None)
+        assert alice_income is not None
+        assert alice_income.amount_monthly == 35000
 
     def test_get_total_income(self, db_module):
         """get_total_income should sum all income entries."""
         user_id = db_module.create_user("incometest4", "testpass")
-        db_module.update_income(user_id, "Søren", 30000)
-        db_module.update_income(user_id, "Anne", 25000)
+        db_module.update_income(user_id, "Alice", 30000)
+        db_module.update_income(user_id, "Bob", 25000)
 
         total = db_module.get_total_income(user_id)
         assert total == 55000

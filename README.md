@@ -4,14 +4,12 @@ En moderne, brugervenlig webapplikation til styring af familiens budget, bygget 
 
 ## ✨ Funktioner
 
-*   **📊 Dashboard**: Centralt overblik over samlet indkomst, faste udgifter og rådighedsbeløb.
-*   **💸 Udgiftshåndtering**: Nem registrering af både månedlige og årlige udgifter. Årlige udgifter omregnes automatisk til månedsbeløb.
-*   **🏢 Kategorisering**: Organiser udgifter i tilpassede kategorier med ikoner (f.eks. Bolig, Mad, Transport, Opsparing).
-*   **👤 Brugerstyring**: Sikker login og registrering med hashing af adgangskoder (PBKDF2).
-*   **🛡️ Sikkerhed**: Rate limiting på login-forsøg og sessionsstyring via cookies.
-*   **🎮 Demo-tilstand**: Mulighed for at afprøve applikationen med testdata uden at oprette en konto.
-*   **📱 Responsivt Design**: Udviklet med Tailwind CSS for en optimal oplevelse på både mobil og desktop.
-*   **🌙 Dark Mode**: Indbygget understøttelse af mørkt tema.
+*   ** Dashboard**: Centralt overblik over samlet indkomst, faste udgifter og rådighedsbeløb.
+*   ** Udgiftshåndtering**: Nem registrering af både månedlige og årlige udgifter. Årlige udgifter omregnes automatisk til månedsbeløb.
+*   ** Kategorisering**: Organiser udgifter i tilpassede kategorier med ikoner (f.eks. Bolig, Mad, Transport, Opsparing).
+*   ** Brugerstyring**: Sikker login og registrering med hashing af adgangskoder (PBKDF2).
+*   ** Sikkerhed**: Rate limiting på login-forsøg og sessionsstyring via cookies.
+*   ** Demo-tilstand**: Mulighed for at afprøve applikationen med testdata uden at oprette en konto.
 
 ## 🛠️ Teknisk Stack
 
