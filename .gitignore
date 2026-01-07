@@ -19,3 +19,6 @@ data/sessions.json
 
 # OS
 .DS_Store
+
+# Agent
+.agent/
