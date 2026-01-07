@@ -1,101 +1,102 @@
-# Family Budget 💰
+# Family Budget
 
-En moderne, brugervenlig webapplikation til styring af familiens budget, bygget med FastAPI og SQLite. Applikationen giver et klart overblik over indtægter og udgifter, og hjælper med at planlægge økonomien på månedsbasis.
+A web application for household budget management, built with FastAPI and SQLite. The application provides a clear overview of income and expenses, facilitating monthly financial planning.
 
-## ✨ Funktioner
+## Features
 
-*   ** Dashboard**: Centralt overblik over samlet indkomst, faste udgifter og rådighedsbeløb.
-*   ** Udgiftshåndtering**: Nem registrering af både månedlige og årlige udgifter. Årlige udgifter omregnes automatisk til månedsbeløb.
-*   ** Kategorisering**: Organiser udgifter i tilpassede kategorier med ikoner (f.eks. Bolig, Mad, Transport, Opsparing).
-*   ** Brugerstyring**: Sikker login og registrering med hashing af adgangskoder (PBKDF2).
-*   ** Sikkerhed**: Rate limiting på login-forsøg og sessionsstyring via cookies.
-*   ** Demo-tilstand**: Mulighed for at afprøve applikationen med testdata uden at oprette en konto.
+- **Dashboard**: Central overview of total income, fixed expenses, and disposable income.
+- **Expense Management**: Register both monthly and annual expenses. Annual expenses are automatically converted to monthly amounts.
+- **Categorization**: Organize expenses into customizable categories with icons (e.g., Housing, Food, Transport, Savings).
+- **User Management**: Secure login and registration with password hashing (PBKDF2).
+- **Security**: Rate limiting on login attempts and session management via cookies.
+- **Demo Mode**: Try the application with sample data without creating an account.
 
-## 🛠️ Teknisk Stack
+## Technical Stack
 
-*   **Backend**: [FastAPI](https://fastapi.tiangolo.com/) (Python)
-*   **Frontend**: [Jinja2 Templates](https://jinja.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/), [Lucide Icons](https://lucide.dev/)
-*   **Database**: [SQLite](https://sqlite.org/) (Fil-baseret for nem portabilitet)
-*   **Test**: [Pytest](https://docs.pytest.org/), [Playwright](https://playwright.dev/) (E2E testing)
+- **Backend**: [FastAPI](https://fastapi.tiangolo.com/) (Python)
+- **Frontend**: [Jinja2 Templates](https://jinja.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/), [Lucide Icons](https://lucide.dev/)
+- **Database**: [SQLite](https://sqlite.org/) (file-based for portability)
+- **Testing**: [Pytest](https://docs.pytest.org/), [Playwright](https://playwright.dev/) (E2E)
 
-## 🚀 Kom i gang
+## Getting Started
 
-### Forudsætninger
-*   Python 3.10+
-*   pip
+### Prerequisites
+
+- Python 3.10+
+- pip
 
 ### Installation
 
-1.  **Klon repoet**:
+1. **Clone the repository**:
     ```bash
     git clone https://github.com/saabendtsen/family-budget.git
     cd family-budget
     ```
 
-2.  **Installer afhængigheder**:
+2. **Install dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Kør applikationen**:
+3. **Run the application**:
     ```bash
     python -m src.api
     ```
-    Applikationen vil være tilgængelig på `http://localhost:8086/budget/`
+    The application will be available at `http://localhost:8086/budget/`
 
-## �️ Deployment
+## Deployment
 
-### Docker (Anbefalet)
-Den nemmeste måde at deploye applikationen på er via Docker:
+### Docker (Recommended)
 
-1.  **Byg og start med Docker Compose**:
+1. **Build and start with Docker Compose**:
     ```bash
     docker-compose up -d --build
     ```
-    Applikationen vil nu køre i baggrunden, og databasen gemmes i `./data` mappen for at sikre persistens.
+    The application will run in the background, with the database stored in `./data` for persistence.
 
-### Manuel VPS Setup
-Hvis du foretrækker en manuel installation på en Linux server (f.eks. Ubuntu):
+### Manual VPS Setup
 
-1.  **Installer system-afhængigheder**:
+For manual installation on a Linux server (e.g., Ubuntu):
+
+1. **Install system dependencies**:
     ```bash
     sudo apt update
     sudo apt install python3-pip python3-venv nginx
     ```
 
-2.  **Opsæt virtuelt miljø og installer pakker**:
+2. **Set up virtual environment and install packages**:
     ```bash
     python3 -m venv venv
     source venv/bin/activate
     pip install -r requirements.txt
     ```
 
-3.  **Brug Gunicorn/Uvicorn**:
-    Det anbefales at bruge en proces-manager som `systemd` til at køre applikationen.
+3. **Run with Gunicorn/Uvicorn**:
+    It is recommended to use a process manager such as `systemd` for production deployments.
 
-## �📂 Projektstruktur
+## Project Structure
 
-*   `src/`: Backend logik og database-operationer.
-    *   `api.py`: FastAPI routes og middleware.
-    *   `database.py`: Database-skema og SQL operationer.
-*   `templates/`: Jinja2 HTML skabeloner.
-*   `tests/`: Unit og integration tests.
-*   `e2e/`: End-to-end tests med Playwright.
-*   `data/`: (Oprettes automatisk) Indeholder SQLite databasen og session-filer.
+- `src/`: Backend logic and database operations.
+    - `api.py`: FastAPI routes and middleware.
+    - `database.py`: Database schema and SQL operations.
+- `templates/`: Jinja2 HTML templates.
+- `tests/`: Unit and integration tests.
+- `e2e/`: End-to-end tests with Playwright.
+- `data/`: (Auto-generated) Contains the SQLite database and session files.
 
-## 🧪 Test
+## Testing
 
-For at køre test-suiten:
+To run the test suite:
 
 ```bash
-# Kør alle tests
+# Run all tests
 pytest
 
-# Kør E2E tests (kræver Playwright installation)
+# Run E2E tests (requires Playwright installation)
 playwright install
 pytest e2e/
 ```
 
-## 📝 Licens
+## License
 
-Dette projekt er udviklet til privat brug, men koden er frit tilgængelig til inspiration.
+This project is developed for private use, but the code is freely available for reference.
