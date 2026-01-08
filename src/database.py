@@ -92,14 +92,13 @@ class Expense:
     name: str
     category: str
     amount: float
-    frequency: str  # 'monthly' or 'yearly'
+    frequency: str  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
 
     @property
     def monthly_amount(self) -> float:
         """Return the monthly equivalent amount."""
-        if self.frequency == "yearly":
-            return self.amount / 12
-        return self.amount
+        divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
+        return self.amount / divisors.get(self.frequency, 1)
 
 
 @dataclass
@@ -154,7 +153,7 @@ def init_db():
             name TEXT NOT NULL,
             category TEXT NOT NULL,
             amount REAL NOT NULL,
-            frequency TEXT NOT NULL CHECK(frequency IN ('monthly', 'yearly')),
+            frequency TEXT NOT NULL CHECK(frequency IN ('monthly', 'quarterly', 'semi-annual', 'yearly')),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
@@ -337,12 +336,15 @@ def delete_expense(expense_id: int, user_id: int):
 
 
 def get_total_monthly_expenses(user_id: int) -> float:
-    """Get total monthly expenses for a user (yearly divided by 12)."""
+    """Get total monthly expenses for a user (converted to monthly equivalent)."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         SELECT COALESCE(SUM(
             CASE
+                WHEN frequency = 'monthly' THEN amount
+                WHEN frequency = 'quarterly' THEN amount / 3
+                WHEN frequency = 'semi-annual' THEN amount / 6
                 WHEN frequency = 'yearly' THEN amount / 12
                 ELSE amount
             END
