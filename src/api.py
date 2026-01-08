@@ -210,7 +210,7 @@ def is_demo_mode(request: Request) -> bool:
 @app.get("/budget/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Show login page."""
-    if check_auth(request):
+    if get_user_id(request) is not None:
         return RedirectResponse(url="/budget/", status_code=303)
     return templates.TemplateResponse("login.html", {"request": request})
 
@@ -250,7 +250,7 @@ async def login(
 @app.get("/budget/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     """Show registration page."""
-    if check_auth(request):
+    if get_user_id(request) is not None:
         return RedirectResponse(url="/budget/", status_code=303)
     return templates.TemplateResponse("register.html", {"request": request})
 
