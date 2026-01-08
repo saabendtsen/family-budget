@@ -419,21 +419,25 @@ async def update_income(request: Request):
     form = await request.form()
 
     try:
-        # Parse dynamic form fields: income_name_0, income_amount_0, etc.
+        # Parse dynamic form fields: income_name_0, income_amount_0, income_frequency_0, etc.
         incomes_to_save = []
         i = 0
         while f"income_name_{i}" in form:
             name = form.get(f"income_name_{i}", "").strip()
             amount_str = form.get(f"income_amount_{i}", "0")
+            frequency = form.get(f"income_frequency_{i}", "monthly")
             if name:  # Only save if name is provided
                 amount = float(amount_str) if amount_str else 0
-                incomes_to_save.append((name, amount))
+                # Validate frequency
+                if frequency not in ('monthly', 'quarterly', 'semi-annual', 'yearly'):
+                    frequency = 'monthly'
+                incomes_to_save.append((name, amount, frequency))
             i += 1
 
         # Clear existing and save new
         db.delete_all_income(user_id)
-        for name, amount in incomes_to_save:
-            db.add_income(user_id, name, amount)
+        for name, amount, frequency in incomes_to_save:
+            db.add_income(user_id, name, amount, frequency)
 
     except (ValueError, sqlite3.Error) as e:
         logger.error(f"Error updating income: {e}")
@@ -479,6 +483,9 @@ async def expenses_page(request: Request):
     )
 
 
+VALID_FREQUENCIES = ('monthly', 'quarterly', 'semi-annual', 'yearly')
+
+
 @app.post("/budget/expenses/add")
 async def add_expense(
     request: Request,
@@ -492,6 +499,10 @@ async def add_expense(
         return RedirectResponse(url="/budget/login", status_code=303)
     if is_demo_mode(request):
         return RedirectResponse(url="/budget/expenses", status_code=303)
+
+    # Validate frequency
+    if frequency not in VALID_FREQUENCIES:
+        raise HTTPException(status_code=400, detail="Ugyldig frekvens")
 
     user_id = get_user_id(request)
     try:
@@ -533,6 +544,10 @@ async def edit_expense(
         return RedirectResponse(url="/budget/login", status_code=303)
     if is_demo_mode(request):
         return RedirectResponse(url="/budget/expenses", status_code=303)
+
+    # Validate frequency
+    if frequency not in VALID_FREQUENCIES:
+        raise HTTPException(status_code=400, detail="Ugyldig frekvens")
 
     user_id = get_user_id(request)
     try:
