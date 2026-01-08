@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import database as db
+from . import __version__
 
 # Initialize database at startup
 db.init_db()
@@ -153,8 +154,9 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 app = FastAPI(
     title="Family Budget",
     description="A simple family budget tracker",
-    version="1.0.0"
+    version=__version__
 )
+app.state.version = __version__
 
 # Add security and rate limiting middleware
 app.add_middleware(SecurityHeadersMiddleware)
@@ -172,6 +174,7 @@ def format_currency(amount: float) -> str:
 
 # Add to Jinja2 globals
 templates.env.globals["format_currency"] = format_currency
+templates.env.globals["app_version"] = app.state.version
 
 
 # =============================================================================

@@ -17,6 +17,10 @@ RUN pip install --no-cache-dir \
 # Copy application code
 COPY src/ ./src/
 COPY templates/ ./templates/
+COPY VERSION ./VERSION
+
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
 
 # Create data directory
 RUN mkdir -p /app/data

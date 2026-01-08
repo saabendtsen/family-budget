@@ -11,3 +11,4 @@ services:
     environment:
       - TZ=Europe/Copenhagen
       - PYTHONUNBUFFERED=1
+      - APP_VERSION=${APP_VERSION}

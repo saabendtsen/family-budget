@@ -42,7 +42,8 @@
     {% if show_nav is not defined or show_nav %}
     <!-- Bottom Navigation -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 safe-area-inset-bottom">
-        <div class="max-w-md mx-auto flex justify-around items-center">
+        <div class="max-w-md mx-auto">
+            <div class="flex justify-around items-center">
             <a href="/budget/" class="nav-item flex flex-col items-center py-2 px-4 rounded-lg {% if active_page == 'dashboard' %}text-primary bg-blue-50 dark:bg-blue-900/30{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
                 <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
                 <span class="text-xs mt-1">Oversigt</span>
@@ -59,6 +60,12 @@
                 <i data-lucide="help-circle" class="w-6 h-6"></i>
                 <span class="text-xs mt-1">Hjælp</span>
             </a>
+            </div>
+            {% if app_version %}
+            <div class="mt-1 text-center text-[10px] text-gray-400 dark:text-gray-500">
+                v{{ app_version }}
+            </div>
+            {% endif %}
         </div>
     </nav>
     {% endif %}
