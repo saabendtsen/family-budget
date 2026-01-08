@@ -48,8 +48,9 @@ DEFAULT_CATEGORIES = [
 
 # Demo data - typical Danish household budget
 DEMO_INCOME = [
-    ("Person 1", 28000),
-    ("Person 2", 22000),
+    # (person, amount, frequency)
+    ("Person 1", 28000, "monthly"),
+    ("Person 2", 22000, "monthly"),
 ]
 
 DEMO_EXPENSES = [
@@ -82,7 +83,14 @@ class Income:
     id: int
     user_id: int
     person: str
-    amount_monthly: float
+    amount: float
+    frequency: str = 'monthly'  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
+
+    @property
+    def monthly_amount(self) -> float:
+        """Return the monthly equivalent amount."""
+        divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
+        return self.amount / divisors.get(self.frequency, 1)
 
 
 @dataclass
@@ -140,7 +148,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             person TEXT NOT NULL,
-            amount_monthly REAL NOT NULL DEFAULT 0,
+            amount REAL NOT NULL DEFAULT 0,
+            frequency TEXT NOT NULL DEFAULT 'monthly' CHECK(frequency IN ('monthly', 'quarterly', 'semi-annual', 'yearly')),
             FOREIGN KEY (user_id) REFERENCES users(id),
             UNIQUE(user_id, person)
         )
@@ -184,6 +193,16 @@ def init_db():
     if "last_login" not in columns:
         cur.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
 
+    # Migration: Add frequency column to income table (migrate from amount_monthly)
+    cur.execute("PRAGMA table_info(income)")
+    income_columns = [col[1] for col in cur.fetchall()]
+    if "frequency" not in income_columns and "amount_monthly" in income_columns:
+        # Add new columns
+        cur.execute("ALTER TABLE income ADD COLUMN amount REAL NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE income ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'")
+        # Migrate data from amount_monthly to amount
+        cur.execute("UPDATE income SET amount = amount_monthly")
+
     # Insert default categories
     for name, icon in DEFAULT_CATEGORIES:
         cur.execute(
@@ -204,7 +223,7 @@ def get_all_income(user_id: int) -> list[Income]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, user_id, person, amount_monthly FROM income WHERE user_id = ? ORDER BY person",
+        "SELECT id, user_id, person, amount, frequency FROM income WHERE user_id = ? ORDER BY person",
         (user_id,)
     )
     rows = cur.fetchall()
@@ -212,13 +231,13 @@ def get_all_income(user_id: int) -> list[Income]:
     return [Income(**dict(row)) for row in rows]
 
 
-def add_income(user_id: int, person: str, amount: float) -> int:
+def add_income(user_id: int, person: str, amount: float, frequency: str = 'monthly') -> int:
     """Add income entry for a user. Returns the new income ID."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO income (user_id, person, amount_monthly) VALUES (?, ?, ?)",
-        (user_id, person, amount)
+        "INSERT INTO income (user_id, person, amount, frequency) VALUES (?, ?, ?, ?)",
+        (user_id, person, amount, frequency)
     )
     income_id = cur.lastrowid
     conn.commit()
@@ -226,7 +245,7 @@ def add_income(user_id: int, person: str, amount: float) -> int:
     return income_id
 
 
-def update_income(user_id: int, person: str, amount: float):
+def update_income(user_id: int, person: str, amount: float, frequency: str = 'monthly'):
     """Update or insert income for a user.
 
     Uses INSERT ... ON CONFLICT for atomic upsert operation,
@@ -235,23 +254,30 @@ def update_income(user_id: int, person: str, amount: float):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """INSERT INTO income (user_id, person, amount_monthly)
-           VALUES (?, ?, ?)
-           ON CONFLICT(user_id, person) DO UPDATE SET amount_monthly = excluded.amount_monthly""",
-        (user_id, person, amount)
+        """INSERT INTO income (user_id, person, amount, frequency)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(user_id, person) DO UPDATE SET amount = excluded.amount, frequency = excluded.frequency""",
+        (user_id, person, amount, frequency)
     )
     conn.commit()
     conn.close()
 
 
 def get_total_income(user_id: int) -> float:
-    """Get total monthly income for a user."""
+    """Get total monthly income for a user (converted to monthly equivalent)."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT COALESCE(SUM(amount_monthly), 0) FROM income WHERE user_id = ?",
-        (user_id,)
-    )
+    cur.execute("""
+        SELECT COALESCE(SUM(
+            CASE
+                WHEN frequency = 'monthly' THEN amount
+                WHEN frequency = 'quarterly' THEN amount / 3
+                WHEN frequency = 'semi-annual' THEN amount / 6
+                WHEN frequency = 'yearly' THEN amount / 12
+                ELSE amount
+            END
+        ), 0) FROM income WHERE user_id = ?
+    """, (user_id,))
     total = cur.fetchone()[0]
     conn.close()
     return total
@@ -551,13 +577,13 @@ def get_user_count() -> int:
 
 def get_demo_income() -> list[Income]:
     """Get demo income data."""
-    return [Income(id=i+1, user_id=0, person=person, amount_monthly=amount)
-            for i, (person, amount) in enumerate(DEMO_INCOME)]
+    return [Income(id=i+1, user_id=0, person=person, amount=amount, frequency=freq)
+            for i, (person, amount, freq) in enumerate(DEMO_INCOME)]
 
 
 def get_demo_total_income() -> float:
-    """Get total demo income."""
-    return sum(amount for _, amount in DEMO_INCOME)
+    """Get total demo income (converted to monthly equivalent)."""
+    return sum(inc.monthly_amount for inc in get_demo_income())
 
 
 def get_demo_expenses() -> list[Expense]:
