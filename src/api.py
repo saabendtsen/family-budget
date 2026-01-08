@@ -402,11 +402,17 @@ async def income_page(request: Request):
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
+    demo = is_demo_mode(request)
     user_id = get_user_id(request)
-    incomes = db.get_all_income(user_id)
+
+    if demo:
+        incomes = db.get_demo_income()
+    else:
+        incomes = db.get_all_income(user_id)
+
     return templates.TemplateResponse(
         "income.html",
-        {"request": request, "incomes": incomes, "demo_mode": is_demo_mode(request)}
+        {"request": request, "incomes": incomes, "demo_mode": demo}
     )
 
 
