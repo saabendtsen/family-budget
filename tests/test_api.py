@@ -175,6 +175,33 @@ class TestProtectedEndpoints:
         assert response.status_code == 303
 
 
+class TestPrivacyPolicy:
+    """Tests for privacy policy page."""
+
+    def test_privacy_accessible_without_auth(self, client):
+        """Privacy page should be accessible without authentication."""
+        response = client.get("/budget/privacy")
+
+        assert response.status_code == 200
+
+    def test_privacy_contains_required_sections(self, client):
+        """Privacy page should contain required GDPR information."""
+        response = client.get("/budget/privacy")
+
+        # Required sections for GDPR compliance
+        assert "privatlivspolitik" in response.text.lower()
+        assert "data" in response.text.lower()
+        assert "cookies" in response.text.lower()
+        assert "rettigheder" in response.text.lower()
+        assert "kontakt" in response.text.lower()
+
+    def test_privacy_accessible_when_authenticated(self, authenticated_client):
+        """Privacy page should also be accessible when logged in."""
+        response = authenticated_client.get("/budget/privacy")
+
+        assert response.status_code == 200
+
+
 class TestDashboard:
     """Tests for dashboard functionality."""
 
