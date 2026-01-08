@@ -1,16 +1,21 @@
 #!/bin/bash
 # Auto-deploy script for family-budget
-# Checks for new commits on origin/master and deploys if found
+# Checks for new commits on origin/main and deploys if found
 
 set -e
 cd ~/projects/family-budget
 
+BRANCH="main"
+if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+    BRANCH="master"
+fi
+
 # Fetch latest from remote
-git fetch origin master --quiet
+git fetch origin "$BRANCH" --quiet
 
 # Get current and remote commit
 LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/master)
+REMOTE=$(git rev-parse "origin/$BRANCH")
 
 # Exit if already up to date
 if [ "$LOCAL" = "$REMOTE" ]; then
@@ -20,8 +25,9 @@ fi
 echo "[$(date)] New commits detected, deploying..."
 
 # Pull and rebuild
-git reset --hard origin/master
-docker compose build --quiet
+git reset --hard "origin/$BRANCH"
+export APP_VERSION=$(cat VERSION)
+docker compose build --quiet --build-arg APP_VERSION="$APP_VERSION"
 docker compose down
 docker compose up -d
 
