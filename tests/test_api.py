@@ -217,16 +217,72 @@ class TestIncomeEndpoints:
         response = authenticated_client.post(
             "/budget/income",
             data={
-                "person1_name": "Alice",
-                "person1_amount": "35000",
-                "person2_name": "Bob",
-                "person2_amount": "28000"
+                "income_name_0": "Alice",
+                "income_amount_0": "35000",
+                "income_frequency_0": "monthly",
+                "income_name_1": "Bob",
+                "income_amount_1": "28000",
+                "income_frequency_1": "monthly"
             },
             follow_redirects=False
         )
 
         assert response.status_code == 303
         assert response.headers["location"] == "/budget/"
+
+    def test_update_income_with_frequency(self, authenticated_client, db_module):
+        """POST to income with different frequencies should save correctly."""
+        response = authenticated_client.post(
+            "/budget/income",
+            data={
+                "income_name_0": "Monthly Salary",
+                "income_amount_0": "30000",
+                "income_frequency_0": "monthly",
+                "income_name_1": "Quarterly Bonus",
+                "income_amount_1": "9000",
+                "income_frequency_1": "quarterly",
+                "income_name_2": "Annual Bonus",
+                "income_amount_2": "24000",
+                "income_frequency_2": "yearly"
+            },
+            follow_redirects=False
+        )
+
+        assert response.status_code == 303
+        # Verify income was saved with correct frequencies
+        user_id = authenticated_client.user_id
+        incomes = db_module.get_all_income(user_id)
+
+        monthly = next((i for i in incomes if i.person == "Monthly Salary"), None)
+        quarterly = next((i for i in incomes if i.person == "Quarterly Bonus"), None)
+        yearly = next((i for i in incomes if i.person == "Annual Bonus"), None)
+
+        assert monthly is not None and monthly.frequency == "monthly"
+        assert quarterly is not None and quarterly.frequency == "quarterly"
+        assert quarterly.monthly_amount == 3000  # 9000 / 3
+        assert yearly is not None and yearly.frequency == "yearly"
+        assert yearly.monthly_amount == 2000  # 24000 / 12
+
+    def test_update_income_semiannual(self, authenticated_client, db_module):
+        """POST to income with semi-annual frequency should work."""
+        response = authenticated_client.post(
+            "/budget/income",
+            data={
+                "income_name_0": "Semi-Annual Payment",
+                "income_amount_0": "12000",
+                "income_frequency_0": "semi-annual"
+            },
+            follow_redirects=False
+        )
+
+        assert response.status_code == 303
+        user_id = authenticated_client.user_id
+        incomes = db_module.get_all_income(user_id)
+        semiannual = next((i for i in incomes if i.person == "Semi-Annual Payment"), None)
+
+        assert semiannual is not None
+        assert semiannual.frequency == "semi-annual"
+        assert semiannual.monthly_amount == 2000  # 12000 / 6
 
 
 class TestExpenseEndpoints:
@@ -253,6 +309,66 @@ class TestExpenseEndpoints:
 
         assert response.status_code == 303
         assert response.headers["location"] == "/budget/expenses"
+
+    def test_add_expense_quarterly(self, authenticated_client, db_module):
+        """POST to add expense with quarterly frequency should work."""
+        response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Quarterly Expense",
+                "category": "Forbrug",
+                "amount": "2400",
+                "frequency": "quarterly"
+            },
+            follow_redirects=False
+        )
+
+        assert response.status_code == 303
+        # Verify expense was created with correct frequency
+        user_id = authenticated_client.user_id
+        expenses = db_module.get_all_expenses(user_id)
+        quarterly_expense = next((e for e in expenses if e.name == "Quarterly Expense"), None)
+        assert quarterly_expense is not None
+        assert quarterly_expense.frequency == "quarterly"
+        assert quarterly_expense.monthly_amount == 800  # 2400 / 3
+
+    def test_add_expense_semiannual(self, authenticated_client, db_module):
+        """POST to add expense with semi-annual frequency should work."""
+        response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Semi-Annual Expense",
+                "category": "Transport",
+                "amount": "4500",
+                "frequency": "semi-annual"
+            },
+            follow_redirects=False
+        )
+
+        assert response.status_code == 303
+        # Verify expense was created with correct frequency
+        user_id = authenticated_client.user_id
+        expenses = db_module.get_all_expenses(user_id)
+        semiannual_expense = next((e for e in expenses if e.name == "Semi-Annual Expense"), None)
+        assert semiannual_expense is not None
+        assert semiannual_expense.frequency == "semi-annual"
+        assert semiannual_expense.monthly_amount == 750  # 4500 / 6
+
+    def test_add_expense_invalid_frequency(self, authenticated_client):
+        """POST to add expense with invalid frequency should reject."""
+        response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Invalid Expense",
+                "category": "Bolig",
+                "amount": "1000",
+                "frequency": "invalid_frequency"
+            },
+            follow_redirects=False
+        )
+
+        # Should reject with 400 Bad Request (invalid frequency validation)
+        assert response.status_code == 400
 
     def test_delete_expense(self, authenticated_client, db_module):
         """POST to delete expense should remove it."""

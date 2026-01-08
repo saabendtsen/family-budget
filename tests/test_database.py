@@ -67,7 +67,19 @@ class TestIncomeOperations:
         incomes = db_module.get_all_income(user_id)
         assert len(incomes) == 1
         assert incomes[0].person == "Person 1"
-        assert incomes[0].amount_monthly == 30000
+        assert incomes[0].amount == 30000
+        assert incomes[0].frequency == "monthly"
+        assert incomes[0].monthly_amount == 30000
+
+    def test_add_income_with_frequency(self, db_module):
+        """add_income should support different frequencies."""
+        user_id = db_module.create_user("incometest2a", "testpass")
+        db_module.add_income(user_id, "Quarterly Bonus", 9000, "quarterly")
+
+        incomes = db_module.get_all_income(user_id)
+        assert incomes[0].amount == 9000
+        assert incomes[0].frequency == "quarterly"
+        assert incomes[0].monthly_amount == 3000  # 9000 / 3
 
     def test_update_income(self, db_module):
         """update_income should change the amount or create if not exists."""
@@ -77,16 +89,44 @@ class TestIncomeOperations:
         incomes = db_module.get_all_income(user_id)
         alice_income = next((i for i in incomes if i.person == "Alice"), None)
         assert alice_income is not None
-        assert alice_income.amount_monthly == 35000
+        assert alice_income.amount == 35000
+        assert alice_income.monthly_amount == 35000
+
+    def test_update_income_with_frequency(self, db_module):
+        """update_income should handle frequency."""
+        user_id = db_module.create_user("incometest3a", "testpass")
+        db_module.update_income(user_id, "Yearly Dividend", 12000, "yearly")
+
+        incomes = db_module.get_all_income(user_id)
+        inc = next(i for i in incomes if i.person == "Yearly Dividend")
+        assert inc.amount == 12000
+        assert inc.frequency == "yearly"
+        assert inc.monthly_amount == 1000  # 12000 / 12
 
     def test_get_total_income(self, db_module):
-        """get_total_income should sum all income entries."""
+        """get_total_income should sum all income entries with frequency conversion."""
         user_id = db_module.create_user("incometest4", "testpass")
-        db_module.update_income(user_id, "Alice", 30000)
-        db_module.update_income(user_id, "Bob", 25000)
+        db_module.update_income(user_id, "Alice", 30000, "monthly")  # 30000/month
+        db_module.update_income(user_id, "Bob", 12000, "yearly")  # 1000/month
 
         total = db_module.get_total_income(user_id)
-        assert total == 55000
+        assert total == 31000  # 30000 + 1000
+
+    def test_income_monthly_amount_quarterly(self, db_module):
+        """Income monthly_amount should divide by 3 for quarterly."""
+        user_id = db_module.create_user("incometest4a", "testpass")
+        db_module.add_income(user_id, "Quarterly", 9000, "quarterly")
+
+        incomes = db_module.get_all_income(user_id)
+        assert incomes[0].monthly_amount == 3000
+
+    def test_income_monthly_amount_semiannual(self, db_module):
+        """Income monthly_amount should divide by 6 for semi-annual."""
+        user_id = db_module.create_user("incometest4b", "testpass")
+        db_module.add_income(user_id, "Semi-Annual", 12000, "semi-annual")
+
+        incomes = db_module.get_all_income(user_id)
+        assert incomes[0].monthly_amount == 2000  # 12000 / 6
 
     def test_income_isolation_between_users(self, db_module):
         """Each user should only see their own income."""
@@ -136,6 +176,22 @@ class TestExpenseOperations:
 
         assert expense.monthly_amount == 1000  # 12000 / 12
 
+    def test_expense_monthly_amount_for_quarterly(self, db_module):
+        """monthly_amount should divide by 3 for quarterly expenses."""
+        user_id = db_module.create_user("expensetest3a", "testpass")
+        expense_id = db_module.add_expense(user_id, "Vand", "Forbrug", 2400, "quarterly")
+        expense = db_module.get_expense_by_id(expense_id, user_id)
+
+        assert expense.monthly_amount == 800  # 2400 / 3
+
+    def test_expense_monthly_amount_for_semiannual(self, db_module):
+        """monthly_amount should divide by 6 for semi-annual expenses."""
+        user_id = db_module.create_user("expensetest3b", "testpass")
+        expense_id = db_module.add_expense(user_id, "Bilservice", "Transport", 4500, "semi-annual")
+        expense = db_module.get_expense_by_id(expense_id, user_id)
+
+        assert expense.monthly_amount == 750  # 4500 / 6
+
     def test_update_expense(self, db_module):
         """update_expense should modify existing expense."""
         user_id = db_module.create_user("expensetest4", "testpass")
@@ -158,13 +214,15 @@ class TestExpenseOperations:
         assert expense is None
 
     def test_get_total_monthly_expenses(self, db_module):
-        """get_total_monthly_expenses should calculate correct total."""
+        """get_total_monthly_expenses should calculate correct total with all frequencies."""
         user_id = db_module.create_user("expensetest6", "testpass")
-        db_module.add_expense(user_id, "Monthly", "Bolig", 1000, "monthly")
-        db_module.add_expense(user_id, "Yearly", "Bolig", 1200, "yearly")  # 100/month
+        db_module.add_expense(user_id, "Monthly", "Bolig", 1000, "monthly")  # 1000/month
+        db_module.add_expense(user_id, "Quarterly", "Forbrug", 900, "quarterly")  # 300/month
+        db_module.add_expense(user_id, "Semi-Annual", "Transport", 600, "semi-annual")  # 100/month
+        db_module.add_expense(user_id, "Yearly", "Forsikring", 1200, "yearly")  # 100/month
 
         total = db_module.get_total_monthly_expenses(user_id)
-        assert total == 1100  # 1000 + 100
+        assert total == 1500  # 1000 + 300 + 100 + 100
 
     def test_get_expenses_by_category(self, db_module):
         """get_expenses_by_category should group expenses correctly."""
@@ -340,25 +398,35 @@ class TestDemoData:
     """Tests for demo data functions."""
 
     def test_get_demo_income(self, db_module):
-        """get_demo_income should return demo income entries."""
+        """get_demo_income should return demo income entries with frequencies."""
         incomes = db_module.get_demo_income()
 
-        assert len(incomes) == 2
-        assert all(i.amount_monthly > 0 for i in incomes)
+        assert len(incomes) == 3  # Person 1, Person 2, Bonus
+        assert all(i.monthly_amount > 0 for i in incomes)
+        # Verify frequency support
+        frequencies = {i.frequency for i in incomes}
+        assert "monthly" in frequencies
+        assert "semi-annual" in frequencies  # Bonus is semi-annual
 
     def test_get_demo_total_income(self, db_module):
-        """get_demo_total_income should return positive total."""
+        """get_demo_total_income should return positive total with frequency conversion."""
         total = db_module.get_demo_total_income()
 
         assert total > 0
-        assert total == sum(i.amount_monthly for i in db_module.get_demo_income())
+        assert total == sum(i.monthly_amount for i in db_module.get_demo_income())
 
     def test_get_demo_expenses(self, db_module):
-        """get_demo_expenses should return demo expenses."""
+        """get_demo_expenses should return demo expenses with all frequencies."""
         expenses = db_module.get_demo_expenses()
 
         assert len(expenses) > 0
         assert all(e.amount > 0 for e in expenses)
+        # Verify all frequency types are represented
+        frequencies = {e.frequency for e in expenses}
+        assert "monthly" in frequencies
+        assert "quarterly" in frequencies  # Vand, Tandlægeforsikring
+        assert "semi-annual" in frequencies  # Bilservice
+        assert "yearly" in frequencies  # Ejendomsskat, etc.
 
     def test_get_demo_total_expenses(self, db_module):
         """get_demo_total_expenses should return positive total."""
