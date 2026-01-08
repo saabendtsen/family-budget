@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Indkomst</h1>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Månedlig indkomst efter skat</p>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Indkomst efter skat (beregnes til månedlig)</p>
     </div>
 
     {% if demo_mode %}
@@ -44,21 +44,40 @@
                         <i data-lucide="trash-2" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <label class="block">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
-                    <div class="mt-1 relative">
-                        <input
-                            type="number"
-                            name="income_amount_{{ loop.index0 }}"
-                            value="{{ income.amount_monthly|int }}"
-                            step="1"
-                            min="0"
-                            class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            required
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <label class="block">
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">Beløb</span>
+                        <div class="mt-1 relative">
+                            <input
+                                type="number"
+                                name="income_amount_{{ loop.index0 }}"
+                                value="{{ income.amount|int }}"
+                                step="1"
+                                min="0"
+                                class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                required
+                            >
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
+                        </div>
+                    </label>
+                    <label class="block">
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">Frekvens</span>
+                        <select
+                            name="income_frequency_{{ loop.index0 }}"
+                            class="w-full mt-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
-                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
-                    </div>
-                </label>
+                            <option value="monthly" {% if income.frequency == 'monthly' %}selected{% endif %}>Månedlig</option>
+                            <option value="quarterly" {% if income.frequency == 'quarterly' %}selected{% endif %}>Kvartalsvis</option>
+                            <option value="semi-annual" {% if income.frequency == 'semi-annual' %}selected{% endif %}>Halvårlig</option>
+                            <option value="yearly" {% if income.frequency == 'yearly' %}selected{% endif %}>Årlig</option>
+                        </select>
+                    </label>
+                </div>
+                {% if income.frequency != 'monthly' %}
+                <div class="text-xs text-gray-500 dark:text-gray-400 text-right">
+                    = {{ format_currency(income.monthly_amount) }}/måned
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -121,21 +140,35 @@
                         <i data-lucide="trash-2" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <label class="block">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Månedlig indkomst</span>
-                    <div class="mt-1 relative">
-                        <input
-                            type="number"
-                            name="income_amount_${incomeIndex}"
-                            value="0"
-                            step="1"
-                            min="0"
-                            class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            required
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <label class="block">
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">Beløb</span>
+                        <div class="mt-1 relative">
+                            <input
+                                type="number"
+                                name="income_amount_${incomeIndex}"
+                                value="0"
+                                step="1"
+                                min="0"
+                                class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                required
+                            >
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
+                        </div>
+                    </label>
+                    <label class="block">
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">Frekvens</span>
+                        <select
+                            name="income_frequency_${incomeIndex}"
+                            class="w-full mt-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
-                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
-                    </div>
-                </label>
+                            <option value="monthly" selected>Månedlig</option>
+                            <option value="quarterly">Kvartalsvis</option>
+                            <option value="semi-annual">Halvårlig</option>
+                            <option value="yearly">Årlig</option>
+                        </select>
+                    </label>
+                </div>
             </div>
         `;
 
@@ -176,6 +209,7 @@
         document.querySelectorAll('.income-item').forEach((item, i) => {
             item.querySelector('[name^="income_name_"]').name = `income_name_${i}`;
             item.querySelector('[name^="income_amount_"]').name = `income_amount_${i}`;
+            item.querySelector('[name^="income_frequency_"]').name = `income_frequency_${i}`;
         });
         incomeIndex = document.querySelectorAll('.income-item').length;
     }

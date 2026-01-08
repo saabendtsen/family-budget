@@ -56,12 +56,19 @@
                         <div class="flex-1">
                             <div class="text-gray-900 dark:text-white">{{ expense.name }}</div>
                             <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                {{ expense.frequency == 'yearly' and 'Årlig' or 'Månedlig' }}
+                                {% if expense.frequency == 'quarterly' %}Kvartalsvis
+                                {% elif expense.frequency == 'semi-annual' %}Halvårlig
+                                {% elif expense.frequency == 'yearly' %}Årlig
+                                {% else %}Månedlig{% endif %}
                             </div>
                         </div>
                         <div class="text-right">
                             <div class="font-medium text-gray-900 dark:text-white">{{ format_currency(expense.monthly_amount) }}</div>
-                            {% if expense.frequency == 'yearly' %}
+                            {% if expense.frequency == 'quarterly' %}
+                            <div class="text-xs text-gray-400 dark:text-gray-500">{{ format_currency(expense.amount) }}/kvartal</div>
+                            {% elif expense.frequency == 'semi-annual' %}
+                            <div class="text-xs text-gray-400 dark:text-gray-500">{{ format_currency(expense.amount) }}/halvår</div>
+                            {% elif expense.frequency == 'yearly' %}
                             <div class="text-xs text-gray-400 dark:text-gray-500">{{ format_currency(expense.amount) }}/år</div>
                             {% endif %}
                         </div>
@@ -179,14 +186,26 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frekvens</label>
-                <div class="flex gap-2">
-                    <label class="flex-1">
+                <div class="grid grid-cols-2 gap-2">
+                    <label>
                         <input type="radio" name="frequency" value="monthly" class="sr-only peer" checked>
                         <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
                             Månedlig
                         </div>
                     </label>
-                    <label class="flex-1">
+                    <label>
+                        <input type="radio" name="frequency" value="quarterly" class="sr-only peer">
+                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
+                            Kvartalsvis
+                        </div>
+                    </label>
+                    <label>
+                        <input type="radio" name="frequency" value="semi-annual" class="sr-only peer">
+                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
+                            Halvårlig
+                        </div>
+                    </label>
+                    <label>
                         <input type="radio" name="frequency" value="yearly" class="sr-only peer">
                         <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
                             Årlig
