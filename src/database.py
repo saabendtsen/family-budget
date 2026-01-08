@@ -1,13 +1,14 @@
 """SQLite database operations for Family Budget."""
 
 import hashlib
+import os
 import secrets
 import sqlite3
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 
-DB_PATH = Path(__file__).parent.parent / "data" / "budget.db"
+DB_PATH = Path(os.environ.get("BUDGET_DB_PATH", Path(__file__).parent.parent / "data" / "budget.db"))
 
 
 # =============================================================================
