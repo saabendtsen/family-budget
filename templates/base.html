@@ -77,8 +77,8 @@
             // Default demo data (matches database.py DEMO_INCOME and DEMO_EXPENSES)
             DEFAULT_DATA: {
                 income: [
-                    { id: 1, person: "Person 1", amount_monthly: 28000 },
-                    { id: 2, person: "Person 2", amount_monthly: 22000 }
+                    { id: 1, person: "Person 1", amount: 28000, frequency: "monthly" },
+                    { id: 2, person: "Person 2", amount: 22000, frequency: "monthly" }
                 ],
                 expenses: [
                     { id: 1, name: "Husleje/boliglån", category: "Bolig", amount: 12000, frequency: "monthly" },
@@ -162,7 +162,8 @@
                 data.income = incomeList.map((item, index) => ({
                     id: index + 1,
                     person: item.person,
-                    amount_monthly: parseFloat(item.amount_monthly) || 0
+                    amount: parseFloat(item.amount) || 0,
+                    frequency: item.frequency || 'monthly'
                 }));
                 data.nextIncomeId = data.income.length + 1;
                 this.save(data);
@@ -224,14 +225,23 @@
                 return grouped;
             },
 
+            // Frequency divisors for monthly conversion
+            _getDivisor(frequency) {
+                const divisors = { monthly: 1, quarterly: 3, 'semi-annual': 6, yearly: 12 };
+                return divisors[frequency] || 1;
+            },
+
             // Calculate totals
             getTotalIncome() {
-                return this.getIncome().reduce((sum, i) => sum + i.amount_monthly, 0);
+                return this.getIncome().reduce((sum, i) => {
+                    const monthly = i.amount / this._getDivisor(i.frequency);
+                    return sum + monthly;
+                }, 0);
             },
 
             getTotalExpenses() {
                 return this.getExpenses().reduce((sum, e) => {
-                    const monthly = e.frequency === 'yearly' ? e.amount / 12 : e.amount;
+                    const monthly = e.amount / this._getDivisor(e.frequency);
                     return sum + monthly;
                 }, 0);
             },
@@ -239,7 +249,7 @@
             getCategoryTotals() {
                 const totals = {};
                 this.getExpenses().forEach(expense => {
-                    const monthly = expense.frequency === 'yearly' ? expense.amount / 12 : expense.amount;
+                    const monthly = expense.amount / this._getDivisor(expense.frequency);
                     totals[expense.category] = (totals[expense.category] || 0) + monthly;
                 });
                 return totals;
