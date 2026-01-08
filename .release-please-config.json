@@ -1,0 +1,11 @@
+{
+  "release-type": "simple",
+  "packages": {
+    ".": {
+      "package-name": "family-budget",
+      "extra-files": [
+        "VERSION"
+      ]
+    }
+  }
+}
