@@ -647,6 +647,19 @@ async def help_page(request: Request):
 
 
 # =============================================================================
+# Privacy Policy
+# =============================================================================
+
+@app.get("/budget/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request):
+    """Privacy policy page - accessible without login."""
+    return templates.TemplateResponse(
+        "privacy.html",
+        {"request": request, "show_nav": False}
+    )
+
+
+# =============================================================================
 # Public API (for uptime dashboard)
 # =============================================================================
 

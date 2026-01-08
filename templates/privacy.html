@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% set show_nav = false %}
+
+{% block title %}Privatlivspolitik - Budget{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Privatlivspolitik</h1>
+        <a href="/budget/login" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </a>
+    </div>
+
+    <div class="space-y-6">
+        <!-- Overblik -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="shield" class="w-5 h-5 mr-2 text-primary"></i>
+                Overblik
+            </h2>
+            <p class="text-gray-600 dark:text-gray-300 text-sm">
+                Family Budget er en simpel budget-app til privat brug. Vi indsamler kun de data,
+                du selv indtaster, og deler aldrig dine oplysninger med tredjeparter.
+            </p>
+        </section>
+
+        <!-- Hvilke data -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="database" class="w-5 h-5 mr-2 text-success"></i>
+                Hvilke data gemmer vi?
+            </h2>
+            <ul class="text-gray-600 dark:text-gray-300 text-sm space-y-2">
+                <li class="flex items-start">
+                    <i data-lucide="check" class="w-4 h-4 mr-2 mt-0.5 text-success flex-shrink-0"></i>
+                    <span><strong>Brugernavn</strong> - til login</span>
+                </li>
+                <li class="flex items-start">
+                    <i data-lucide="check" class="w-4 h-4 mr-2 mt-0.5 text-success flex-shrink-0"></i>
+                    <span><strong>Adgangskode</strong> - krypteret (kan ikke aflæses)</span>
+                </li>
+                <li class="flex items-start">
+                    <i data-lucide="check" class="w-4 h-4 mr-2 mt-0.5 text-success flex-shrink-0"></i>
+                    <span><strong>Email</strong> - kun hvis du selv tilføjer den (til password reset)</span>
+                </li>
+                <li class="flex items-start">
+                    <i data-lucide="check" class="w-4 h-4 mr-2 mt-0.5 text-success flex-shrink-0"></i>
+                    <span><strong>Budget-data</strong> - indkomst og udgifter du indtaster</span>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Formål -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="target" class="w-5 h-5 mr-2 text-amber-500"></i>
+                Hvad bruger vi data til?
+            </h2>
+            <ul class="text-gray-600 dark:text-gray-300 text-sm space-y-2">
+                <li>At holde dig logget ind (session cookie)</li>
+                <li>At vise dit budget-overblik</li>
+                <li>At sende password-reset emails (hvis du har tilføjet email)</li>
+            </ul>
+            <p class="text-gray-500 dark:text-gray-400 text-xs mt-3">
+                Vi sælger, deler eller videregiver aldrig dine data til tredjeparter.
+            </p>
+        </section>
+
+        <!-- Cookies -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="cookie" class="w-5 h-5 mr-2 text-purple-500"></i>
+                Cookies
+            </h2>
+            <p class="text-gray-600 dark:text-gray-300 text-sm mb-2">
+                Vi bruger kun en enkelt session-cookie til at holde dig logget ind.
+            </p>
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-xs">
+                <ul class="text-gray-600 dark:text-gray-300 space-y-1">
+                    <li><strong>Navn:</strong> budget_session</li>
+                    <li><strong>Formål:</strong> Authentication</li>
+                    <li><strong>Varighed:</strong> 30 dage (slettes ved logout)</li>
+                </ul>
+            </div>
+            <p class="text-gray-500 dark:text-gray-400 text-xs mt-3">
+                Vi bruger ingen tracking, analytics eller marketing cookies.
+            </p>
+        </section>
+
+        <!-- Sikkerhed -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="lock" class="w-5 h-5 mr-2 text-danger"></i>
+                Sikkerhed
+            </h2>
+            <ul class="text-gray-600 dark:text-gray-300 text-sm space-y-1">
+                <li>Adgangskoder krypteres med PBKDF2 (100.000 iterationer)</li>
+                <li>Al kommunikation sker over HTTPS</li>
+                <li>Data gemmes lokalt på serveren (ikke i cloud)</li>
+            </ul>
+        </section>
+
+        <!-- Dine rettigheder -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="user-check" class="w-5 h-5 mr-2 text-primary"></i>
+                Dine rettigheder
+            </h2>
+            <p class="text-gray-600 dark:text-gray-300 text-sm mb-2">
+                Du har ret til at:
+            </p>
+            <ul class="text-gray-600 dark:text-gray-300 text-sm space-y-1">
+                <li>Se hvilke data vi har om dig</li>
+                <li>Rette dine oplysninger</li>
+                <li>Få slettet din konto og alle data</li>
+            </ul>
+            <p class="text-gray-500 dark:text-gray-400 text-xs mt-3">
+                Kontakt os hvis du vil udnytte disse rettigheder.
+            </p>
+        </section>
+
+        <!-- Kontakt -->
+        <section class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+            <h2 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
+                <i data-lucide="mail" class="w-5 h-5 mr-2"></i>
+                Kontakt
+            </h2>
+            <p class="text-blue-800 dark:text-blue-200 text-sm">
+                Spørgsmål om dine data? Kontakt os på:
+            </p>
+            <p class="text-blue-900 dark:text-blue-100 text-sm font-medium mt-1">
+                support@wibholmsolutions.com
+            </p>
+        </section>
+
+        <!-- Sidst opdateret -->
+        <p class="text-center text-gray-400 dark:text-gray-500 text-xs">
+            Sidst opdateret: Januar 2026
+        </p>
+    </div>
+</div>
+{% endblock %}
