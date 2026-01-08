@@ -96,7 +96,7 @@
             {% for income in incomes %}
             <div>
                 <span class="text-gray-600 dark:text-gray-400">{{ income.person }}:</span>
-                <span class="font-medium text-gray-900 dark:text-white">{{ format_currency(income.amount_monthly) }}</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ format_currency(income.monthly_amount) }}</span>
             </div>
             {% endfor %}
         </div>
