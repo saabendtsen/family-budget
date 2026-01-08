@@ -51,6 +51,7 @@ DEMO_INCOME = [
     # (person, amount, frequency)
     ("Person 1", 28000, "monthly"),
     ("Person 2", 22000, "monthly"),
+    ("Bonus", 30000, "semi-annual"),  # Example: semi-annual bonus
 ]
 
 DEMO_EXPENSES = [
@@ -59,17 +60,19 @@ DEMO_EXPENSES = [
     ("Ejendomsskat", "Bolig", 18000, "yearly"),
     ("Varme", "Forbrug", 800, "monthly"),
     ("El", "Forbrug", 600, "monthly"),
-    ("Vand", "Forbrug", 400, "monthly"),
+    ("Vand", "Forbrug", 2400, "quarterly"),  # Example: quarterly water bill
     ("Internet", "Forbrug", 299, "monthly"),
     ("Bil - lån", "Transport", 2500, "monthly"),
     ("Benzin", "Transport", 1500, "monthly"),
     ("Vægtafgift", "Transport", 3600, "yearly"),
     ("Bilforsikring", "Transport", 6000, "yearly"),
+    ("Bilservice", "Transport", 4500, "semi-annual"),  # Example: semi-annual service
     ("Institution", "Børn", 3200, "monthly"),
     ("Fritidsaktiviteter", "Børn", 400, "monthly"),
     ("Dagligvarer", "Mad", 6000, "monthly"),
     ("Indboforsikring", "Forsikring", 1800, "yearly"),
     ("Ulykkesforsikring", "Forsikring", 1200, "yearly"),
+    ("Tandlægeforsikring", "Forsikring", 600, "quarterly"),  # Example: quarterly dental
     ("Netflix", "Abonnementer", 129, "monthly"),
     ("Spotify", "Abonnementer", 99, "monthly"),
     ("Fitness", "Abonnementer", 299, "monthly"),
