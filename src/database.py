@@ -196,15 +196,18 @@ def init_db():
     if "last_login" not in columns:
         cur.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
 
-    # Migration: Add frequency column to income table (migrate from amount_monthly)
+    # Migration: Add frequency column to income table
     cur.execute("PRAGMA table_info(income)")
     income_columns = [col[1] for col in cur.fetchall()]
-    if "frequency" not in income_columns and "amount_monthly" in income_columns:
-        # Add new columns
-        cur.execute("ALTER TABLE income ADD COLUMN amount REAL NOT NULL DEFAULT 0")
-        cur.execute("ALTER TABLE income ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'")
-        # Migrate data from amount_monthly to amount
-        cur.execute("UPDATE income SET amount = amount_monthly")
+    if "frequency" not in income_columns:
+        if "amount_monthly" in income_columns:
+            # Old schema: migrate from amount_monthly to amount + frequency
+            cur.execute("ALTER TABLE income ADD COLUMN amount REAL NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE income ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'")
+            cur.execute("UPDATE income SET amount = amount_monthly")
+        else:
+            # Schema has amount but no frequency: just add frequency column
+            cur.execute("ALTER TABLE income ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'")
 
     # Insert default categories
     for name, icon in DEFAULT_CATEGORIES:
