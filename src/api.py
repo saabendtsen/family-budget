@@ -577,9 +577,15 @@ async def categories_page(request: Request):
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
+    user_id = get_user_id(request)
+    demo = is_demo_mode(request)
     categories = db.get_all_categories()
-    # Get usage count for each category
-    category_usage = {cat.name: db.get_category_usage_count(cat.name) for cat in categories}
+
+    # Get usage count for each category (0 for demo mode since no real user)
+    if demo:
+        category_usage = {cat.name: 0 for cat in categories}
+    else:
+        category_usage = {cat.name: db.get_category_usage_count(cat.name, user_id) for cat in categories}
 
     return templates.TemplateResponse(
         "categories.html",
@@ -587,7 +593,7 @@ async def categories_page(request: Request):
             "request": request,
             "categories": categories,
             "category_usage": category_usage,
-            "demo_mode": is_demo_mode(request),
+            "demo_mode": demo,
         }
     )
 
