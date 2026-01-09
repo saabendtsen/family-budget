@@ -209,6 +209,30 @@ def init_db():
             # Schema has amount but no frequency: just add frequency column
             cur.execute("ALTER TABLE income ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'")
 
+    # Migration: Update expenses CHECK constraint to include quarterly and semi-annual
+    cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='expenses'")
+    expenses_schema = cur.fetchone()
+    if expenses_schema and 'quarterly' not in expenses_schema[0]:
+        # Old schema only allows 'monthly' and 'yearly' - need to recreate table
+        cur.execute("""
+            CREATE TABLE expenses_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                amount REAL NOT NULL,
+                frequency TEXT NOT NULL CHECK(frequency IN ('monthly', 'quarterly', 'semi-annual', 'yearly')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+        cur.execute("""
+            INSERT INTO expenses_new (id, user_id, name, category, amount, frequency, created_at)
+            SELECT id, user_id, name, category, amount, frequency, created_at FROM expenses
+        """)
+        cur.execute("DROP TABLE expenses")
+        cur.execute("ALTER TABLE expenses_new RENAME TO expenses")
+
     # Insert default categories
     for name, icon in DEFAULT_CATEGORIES:
         cur.execute(
