@@ -185,7 +185,20 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frekvens</label>
+                <div class="flex items-center gap-2 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Frekvens</label>
+                    <div class="relative group">
+                        <i data-lucide="help-circle" class="w-4 h-4 text-gray-400 cursor-help"></i>
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50">
+                            <div class="font-medium mb-1">Beløb omregnes til månedlig:</div>
+                            <div>Månedlig = beløb pr. måned</div>
+                            <div>Kvartalsvis = beløb ÷ 3</div>
+                            <div>Halvårlig = beløb ÷ 6</div>
+                            <div>Årlig = beløb ÷ 12</div>
+                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="grid grid-cols-2 gap-2">
                     <label>
                         <input type="radio" name="frequency" value="monthly" class="sr-only peer" checked>
