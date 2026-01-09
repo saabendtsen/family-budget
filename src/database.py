@@ -518,11 +518,14 @@ def delete_category(category_id: int) -> bool:
         conn.close()
 
 
-def get_category_usage_count(category_name: str) -> int:
-    """Get number of expenses using a category."""
+def get_category_usage_count(category_name: str, user_id: int) -> int:
+    """Get number of expenses using a category for a specific user."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM expenses WHERE category = ?", (category_name,))
+    cur.execute(
+        "SELECT COUNT(*) FROM expenses WHERE category = ? AND user_id = ?",
+        (category_name, user_id)
+    )
     count = cur.fetchone()[0]
     conn.close()
     return count

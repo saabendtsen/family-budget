@@ -325,14 +325,32 @@ class TestCategoryOperations:
         assert db_module.get_category_by_id(category_id) is not None
 
     def test_get_category_usage_count(self, db_module):
-        """get_category_usage_count should return correct count."""
+        """get_category_usage_count should return correct count for specific user."""
         user_id = db_module.create_user("cattest3", "testpass")
         db_module.add_category("TestCat", "icon")
         db_module.add_expense(user_id, "Exp1", "TestCat", 100, "monthly")
         db_module.add_expense(user_id, "Exp2", "TestCat", 200, "monthly")
 
-        count = db_module.get_category_usage_count("TestCat")
+        count = db_module.get_category_usage_count("TestCat", user_id)
         assert count == 2
+
+    def test_get_category_usage_count_user_isolation(self, db_module):
+        """get_category_usage_count should only count expenses for the specified user."""
+        user1 = db_module.create_user("catuser1", "testpass")
+        user2 = db_module.create_user("catuser2", "testpass")
+        db_module.add_category("SharedCat", "icon")
+
+        # User 1 has 3 expenses
+        db_module.add_expense(user1, "Exp1", "SharedCat", 100, "monthly")
+        db_module.add_expense(user1, "Exp2", "SharedCat", 200, "monthly")
+        db_module.add_expense(user1, "Exp3", "SharedCat", 300, "monthly")
+
+        # User 2 has 1 expense
+        db_module.add_expense(user2, "Exp4", "SharedCat", 400, "monthly")
+
+        # Each user should only see their own count
+        assert db_module.get_category_usage_count("SharedCat", user1) == 3
+        assert db_module.get_category_usage_count("SharedCat", user2) == 1
 
 
 class TestUserOperations:
