@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/saabendtsen/family-budget/compare/family-budget-v1.1.0...family-budget-v1.1.1) (2026-01-09)
+
+
+### Bug Fixes
+
+* add migration for expenses frequency CHECK constraint ([f7c07e9](https://github.com/saabendtsen/family-budget/commit/f7c07e90924a9ef6767ce0caa826037e54637bfa))
+
 ## [1.1.0](https://github.com/saabendtsen/family-budget/compare/family-budget-v1.0.0...family-budget-v1.1.0) (2026-01-08)
 
 
