@@ -13,6 +13,20 @@ class TestAuthentication:
         assert response.status_code == 200
         assert "login" in response.text.lower()
 
+    def test_login_page_contains_app_description(self, client):
+        """Login page should contain app description and features."""
+        response = client.get("/budget/login")
+
+        assert response.status_code == 200
+        # Check tagline
+        assert "Hold styr på familiens økonomi" in response.text
+        # Check feature bullets
+        assert "Overblik over indkomst" in response.text
+        assert "Organiser udgifter" in response.text
+        assert "hvad der er tilbage" in response.text
+        # Check demo link exists
+        assert "/budget/demo" in response.text
+
     def test_login_redirects_when_authenticated(self, authenticated_client):
         """Login page should redirect if already authenticated."""
         response = authenticated_client.get("/budget/login", follow_redirects=False)

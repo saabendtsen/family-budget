@@ -4,14 +4,30 @@
 {% block title %}Login - Budget{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center px-4">
+<div class="min-h-screen flex items-center justify-center px-4 py-8">
     <div class="w-full max-w-sm">
-        <div class="text-center mb-8">
+        <div class="text-center mb-6">
             <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <i data-lucide="wallet" class="w-8 h-8 text-white"></i>
             </div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Budget</h1>
-            <p class="text-gray-500 dark:text-gray-400 mt-1">Log ind for at fortsætte</p>
+            <p class="text-primary font-medium mt-2">Hold styr på familiens økonomi</p>
+        </div>
+
+        <!-- Feature highlights -->
+        <div class="mb-6 space-y-2">
+            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-primary flex-shrink-0"></i>
+                <span>Overblik over indkomst og faste udgifter</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                <i data-lucide="folder" class="w-4 h-4 text-primary flex-shrink-0"></i>
+                <span>Organiser udgifter i kategorier</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                <i data-lucide="piggy-bank" class="w-4 h-4 text-primary flex-shrink-0"></i>
+                <span>Se hvad der er tilbage hver måned</span>
+            </div>
         </div>
 
         <form method="post" action="/budget/login" class="space-y-4">
