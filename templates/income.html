@@ -61,7 +61,21 @@
                         </div>
                     </label>
                     <label class="block">
-                        <span class="text-gray-500 dark:text-gray-400 text-sm">Frekvens</span>
+                        <span class="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1">
+                            Frekvens
+                            <span class="relative group">
+                                <i data-lucide="help-circle" class="w-3.5 h-3.5 cursor-help"></i>
+                                <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
+                                    <span class="block space-y-1">
+                                        <span class="block"><strong>Månedlig:</strong> Hver måned</span>
+                                        <span class="block"><strong>Kvartalsvis:</strong> Hver 3. md (÷3)</span>
+                                        <span class="block"><strong>Halvårlig:</strong> Hver 6. md (÷6)</span>
+                                        <span class="block"><strong>Årlig:</strong> 1 gang/år (÷12)</span>
+                                    </span>
+                                    <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></span>
+                                </span>
+                            </span>
+                        </span>
                         <select
                             name="income_frequency_{{ loop.index0 }}"
                             class="w-full mt-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -157,7 +171,21 @@
                         </div>
                     </label>
                     <label class="block">
-                        <span class="text-gray-500 dark:text-gray-400 text-sm">Frekvens</span>
+                        <span class="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1">
+                            Frekvens
+                            <span class="relative group">
+                                <i data-lucide="help-circle" class="w-3.5 h-3.5 cursor-help"></i>
+                                <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
+                                    <span class="block space-y-1">
+                                        <span class="block"><strong>Månedlig:</strong> Hver måned</span>
+                                        <span class="block"><strong>Kvartalsvis:</strong> Hver 3. md (÷3)</span>
+                                        <span class="block"><strong>Halvårlig:</strong> Hver 6. md (÷6)</span>
+                                        <span class="block"><strong>Årlig:</strong> 1 gang/år (÷12)</span>
+                                    </span>
+                                    <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></span>
+                                </span>
+                            </span>
+                        </span>
                         <select
                             name="income_frequency_${incomeIndex}"
                             class="w-full mt-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"

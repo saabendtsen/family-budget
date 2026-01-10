@@ -185,7 +185,23 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frekvens</label>
+                <div class="flex items-center gap-1 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Frekvens</label>
+                    <div class="relative group">
+                        <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" onclick="event.preventDefault()">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i>
+                        </button>
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
+                            <div class="space-y-1">
+                                <div><strong>Månedlig:</strong> Betales hver måned</div>
+                                <div><strong>Kvartalsvis:</strong> Betales hver 3. måned (÷3)</div>
+                                <div><strong>Halvårlig:</strong> Betales hver 6. måned (÷6)</div>
+                                <div><strong>Årlig:</strong> Betales 1 gang om året (÷12)</div>
+                            </div>
+                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="grid grid-cols-2 gap-2">
                     <label>
                         <input type="radio" name="frequency" value="monthly" class="sr-only peer" checked>
