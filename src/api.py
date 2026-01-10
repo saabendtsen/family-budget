@@ -11,8 +11,11 @@ from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
+from datetime import date
+from io import StringIO
+
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -683,6 +686,103 @@ async def privacy_page(request: Request):
     return templates.TemplateResponse(
         "privacy.html",
         {"request": request, "show_nav": False}
+    )
+
+
+# =============================================================================
+# Export
+# =============================================================================
+
+FREQUENCY_LABELS = {
+    'monthly': 'Månedlig',
+    'quarterly': 'Kvartalsvis',
+    'semi-annual': 'Halvårlig',
+    'yearly': 'Årlig',
+}
+
+
+@app.get("/budget/export")
+async def export_data(request: Request):
+    """Export budget data as CSV file.
+
+    Returns a CSV file with:
+    - Income section with monthly calculations
+    - Expenses section with monthly calculations
+    - Summary section with totals
+    """
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    demo = is_demo_mode(request)
+    user_id = get_user_id(request)
+
+    # Get data
+    if demo:
+        incomes = db.get_demo_income()
+        expenses = db.get_demo_expenses()
+        total_income = db.get_demo_total_income()
+        total_expenses = db.get_demo_total_expenses()
+        category_totals = db.get_demo_category_totals()
+    else:
+        incomes = db.get_all_income(user_id)
+        expenses = db.get_all_expenses(user_id)
+        total_income = db.get_total_income(user_id)
+        total_expenses = db.get_total_monthly_expenses(user_id)
+        category_totals = db.get_category_totals(user_id)
+
+    remaining = total_income - total_expenses
+
+    # Build CSV with semicolon separator (Danish Excel default)
+    output = StringIO()
+
+    # UTF-8 BOM for Excel compatibility
+    output.write('\ufeff')
+
+    # Header
+    output.write(f"Budget eksport - {date.today().isoformat()}\n")
+    output.write("\n")
+
+    # Income section
+    output.write("INDKOMST\n")
+    output.write("Kilde;Beløb;Frekvens;Månedligt beløb\n")
+    for income in incomes:
+        freq_label = FREQUENCY_LABELS.get(income.frequency, income.frequency)
+        output.write(f"{income.person};{income.amount:.0f};{freq_label};{income.monthly_amount:.0f}\n")
+    output.write(f"Total indkomst;;;{total_income:.0f}\n")
+    output.write("\n")
+
+    # Expenses section
+    output.write("UDGIFTER\n")
+    output.write("Navn;Kategori;Beløb;Frekvens;Månedligt beløb\n")
+    for expense in expenses:
+        freq_label = FREQUENCY_LABELS.get(expense.frequency, expense.frequency)
+        output.write(f"{expense.name};{expense.category};{expense.amount:.0f};{freq_label};{expense.monthly_amount:.0f}\n")
+    output.write(f"Total udgifter;;;;{total_expenses:.0f}\n")
+    output.write("\n")
+
+    # Category totals
+    output.write("UDGIFTER PER KATEGORI\n")
+    output.write("Kategori;Månedligt beløb\n")
+    for category, total in sorted(category_totals.items()):
+        output.write(f"{category};{total:.0f}\n")
+    output.write("\n")
+
+    # Summary
+    output.write("OPSUMMERING\n")
+    output.write(f"Total månedlig indkomst;{total_income:.0f}\n")
+    output.write(f"Total månedlige udgifter;{total_expenses:.0f}\n")
+    output.write(f"Frie midler (til rådighed);{remaining:.0f}\n")
+
+    # Prepare response
+    csv_content = output.getvalue()
+    filename = f"budget-export-{date.today().isoformat()}.csv"
+
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        }
     )
 
 
