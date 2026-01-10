@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/saabendtsen/family-budget/compare/family-budget-v1.1.1...family-budget-v1.2.0) (2026-01-10)
+
+
+### Features
+
+* add app description and feature highlights to login page ([e3fa4c1](https://github.com/saabendtsen/family-budget/commit/e3fa4c131d755d85603a64ba2fd01429cf442015))
+* add app description and feature highlights to login page ([358acb8](https://github.com/saabendtsen/family-budget/commit/358acb8d818e867fdcff8f0855bd65c9e6b98f91))
+
+
+### Bug Fixes
+
+* add user_id filter to category usage count to prevent data leakage ([a96b0f7](https://github.com/saabendtsen/family-budget/commit/a96b0f7dac83ee7241144f348d9f55577aaf6129))
+* add user_id filter to category usage count to prevent data leakage ([39ab69e](https://github.com/saabendtsen/family-budget/commit/39ab69e159eb19934e78f9f5d2ee5cfbe1f37782))
+
 ## [1.1.1](https://github.com/saabendtsen/family-budget/compare/family-budget-v1.1.0...family-budget-v1.1.1) (2026-01-09)
 
 
