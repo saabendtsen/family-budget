@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.2.0](https://github.com/saabendtsen/family-budget/compare/family-budget-v1.1.1...family-budget-v1.2.0) (2026-01-10)
+
+
+### Features
+
+* add app description and feature highlights to login page ([e3fa4c1](https://github.com/saabendtsen/family-budget/commit/e3fa4c131d755d85603a64ba2fd01429cf442015))
+* add app description and feature highlights to login page ([358acb8](https://github.com/saabendtsen/family-budget/commit/358acb8d818e867fdcff8f0855bd65c9e6b98f91))
+* add category sorting options on dashboard ([663e55b](https://github.com/saabendtsen/family-budget/commit/663e55b9837ef9fe8355b92cf4eca29517b8424a))
+* add category sorting options on dashboard (PR [#41](https://github.com/saabendtsen/family-budget/issues/41)) ([fbfecb2](https://github.com/saabendtsen/family-budget/commit/fbfecb2c60db752bbb1ba5b84fd8a2072aeaea23))
+* add collapse/expand all categories button on expenses page ([#40](https://github.com/saabendtsen/family-budget/issues/40)) ([16f827e](https://github.com/saabendtsen/family-budget/commit/16f827e3c48a48169b5a806c64e5a0dae80977e2))
+* add expense button directly on category header ([#35](https://github.com/saabendtsen/family-budget/issues/35)) ([6236f52](https://github.com/saabendtsen/family-budget/commit/6236f5254b3234f7ba7cb4d3bb4f0a5b9143018e))
+* add GitHub link to help page ([#39](https://github.com/saabendtsen/family-budget/issues/39)) ([5120120](https://github.com/saabendtsen/family-budget/commit/5120120fd86b84b8c7d88f17bdc7ee147c9ee941))
+* add monthly/yearly toggle on dashboard ([#36](https://github.com/saabendtsen/family-budget/issues/36)) ([94e764f](https://github.com/saabendtsen/family-budget/commit/94e764f56cc7bf6776fcea4ca171b4af3a90313c))
+* add navigation from dashboard to income/expenses pages ([#38](https://github.com/saabendtsen/family-budget/issues/38)) ([17c0cf2](https://github.com/saabendtsen/family-budget/commit/17c0cf2d1901a0494b8b80d479d87e021b8420d4))
+* display income sum on income page ([#37](https://github.com/saabendtsen/family-budget/issues/37)) ([831fcf3](https://github.com/saabendtsen/family-budget/commit/831fcf3d56024bf136ac06aa498ab213b4003ab8))
+* Git-based version detection and move version/privacy to help page ([#54](https://github.com/saabendtsen/family-budget/issues/54)) ([b2a0591](https://github.com/saabendtsen/family-budget/commit/b2a05919cfb2384f406a73b2c1a8096f52e89eb2))
+
+
+### Bug Fixes
+
+* add user_id filter to category usage count to prevent data leakage ([a96b0f7](https://github.com/saabendtsen/family-budget/commit/a96b0f7dac83ee7241144f348d9f55577aaf6129))
+* add user_id filter to category usage count to prevent data leakage ([39ab69e](https://github.com/saabendtsen/family-budget/commit/39ab69e159eb19934e78f9f5d2ee5cfbe1f37782))
+* update release-please config and add deployment docs ([d28a49d](https://github.com/saabendtsen/family-budget/commit/d28a49d3ee4f535c7a07132bc3afaa63a36c745a))
+
 ## [1.1.1](https://github.com/saabendtsen/family-budget/compare/family-budget-v1.1.0...family-budget-v1.1.1) (2026-01-09)
 
 
