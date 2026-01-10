@@ -2,10 +2,13 @@
   "release-type": "simple",
   "packages": {
     ".": {
-      "package-name": "family-budget",
-      "extra-files": [
-        "VERSION"
-      ]
+      "package-name": "family-budget"
     }
-  }
+  },
+  "extra-files": [
+    {
+      "type": "generic",
+      "path": "VERSION"
+    }
+  ]
 }
