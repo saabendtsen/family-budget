@@ -11,6 +11,8 @@ from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
+import httpx
+
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -683,6 +685,151 @@ async def privacy_page(request: Request):
     return templates.TemplateResponse(
         "privacy.html",
         {"request": request, "show_nav": False}
+    )
+
+
+# =============================================================================
+# Feedback
+# =============================================================================
+
+# GitHub repository for feedback issues
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "saabendtsen/family-budget")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+
+# Rate limiting for feedback (IP -> list of timestamps)
+feedback_attempts: dict[str, list[float]] = defaultdict(list)
+FEEDBACK_RATE_LIMIT = 5  # max submissions
+FEEDBACK_RATE_WINDOW = 3600  # per hour
+
+
+def check_feedback_rate_limit(client_ip: str) -> bool:
+    """Check if client has exceeded feedback rate limit."""
+    now = time.time()
+    # Clean old attempts
+    feedback_attempts[client_ip] = [
+        t for t in feedback_attempts[client_ip]
+        if now - t < FEEDBACK_RATE_WINDOW
+    ]
+    return len(feedback_attempts[client_ip]) < FEEDBACK_RATE_LIMIT
+
+
+def record_feedback_attempt(client_ip: str):
+    """Record a feedback submission attempt."""
+    feedback_attempts[client_ip].append(time.time())
+
+
+@app.get("/budget/feedback", response_class=HTMLResponse)
+async def feedback_page(request: Request):
+    """Feedback submission page."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    return templates.TemplateResponse(
+        "feedback.html",
+        {"request": request, "demo_mode": is_demo_mode(request)}
+    )
+
+
+@app.post("/budget/feedback")
+async def submit_feedback(
+    request: Request,
+    feedback_type: str = Form(...),
+    description: str = Form(...),
+    email: str = Form(""),
+    website: str = Form("")  # Honeypot field
+):
+    """Submit feedback - creates a GitHub issue."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    demo = is_demo_mode(request)
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Honeypot check (bots fill hidden fields)
+    if website:
+        logger.warning(f"Honeypot triggered from {client_ip}")
+        # Pretend success to fool bots
+        return templates.TemplateResponse(
+            "feedback.html",
+            {"request": request, "success": True, "demo_mode": demo}
+        )
+
+    # Rate limiting
+    if not check_feedback_rate_limit(client_ip):
+        return templates.TemplateResponse(
+            "feedback.html",
+            {
+                "request": request,
+                "error": "For mange henvendelser. Prøv igen senere.",
+                "demo_mode": demo
+            }
+        )
+
+    # Validate input
+    if len(description.strip()) < 10:
+        return templates.TemplateResponse(
+            "feedback.html",
+            {
+                "request": request,
+                "error": "Beskrivelsen skal være mindst 10 tegn.",
+                "demo_mode": demo
+            }
+        )
+
+    # Map feedback type to label and title prefix
+    type_config = {
+        "feedback": {"label": "feedback", "prefix": "Feedback"},
+        "feature": {"label": "enhancement", "prefix": "Feature request"},
+        "bug": {"label": "bug", "prefix": "Bug report"},
+    }
+    config = type_config.get(feedback_type, type_config["feedback"])
+
+    # Build issue body
+    body_parts = [description.strip()]
+    if email:
+        body_parts.append(f"\n---\n**Kontakt email:** {email}")
+    body_parts.append("\n---\n*Sendt via Budget app feedback*")
+
+    # Create GitHub issue if token is configured
+    if GITHUB_TOKEN:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+                    headers={
+                        "Authorization": f"Bearer {GITHUB_TOKEN}",
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                    },
+                    json={
+                        "title": f"{config['prefix']}: {description[:50]}...",
+                        "body": "\n".join(body_parts),
+                        "labels": [config["label"], "from-app"],
+                    },
+                    timeout=10.0,
+                )
+                if response.status_code not in (200, 201):
+                    logger.error(f"GitHub API error: {response.status_code} - {response.text}")
+                    raise Exception("GitHub API error")
+        except Exception as e:
+            logger.error(f"Failed to create GitHub issue: {e}")
+            return templates.TemplateResponse(
+                "feedback.html",
+                {
+                    "request": request,
+                    "error": "Kunne ikke sende feedback. Prøv igen senere.",
+                    "demo_mode": demo
+                }
+            )
+    else:
+        # No token configured - just log the feedback
+        logger.info(f"Feedback ({feedback_type}): {description[:100]}...")
+
+    record_feedback_attempt(client_ip)
+
+    return templates.TemplateResponse(
+        "feedback.html",
+        {"request": request, "success": True, "demo_mode": demo}
     )
 
 
