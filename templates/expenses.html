@@ -34,19 +34,25 @@
         {% for category, cat_expenses in expenses_by_category.items() %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
             <!-- Category header (clickable) -->
-            <button
+            <div class="w-full px-4 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                 onclick="toggleCategory('{{ category|replace(' ', '-') }}')"
-                class="w-full px-4 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
                 <div class="flex items-center gap-3">
                     <i data-lucide="chevron-down" id="chevron-{{ category|replace(' ', '-') }}" class="w-5 h-5 text-gray-400 transition-transform"></i>
                     <span class="font-medium text-gray-900 dark:text-white">{{ category }}</span>
                     <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">{{ cat_expenses|length }}</span>
                 </div>
-                <div class="text-right">
+                <div class="flex items-center gap-3">
                     <div class="font-bold text-gray-900 dark:text-white">{{ format_currency(category_totals[category]) }}/md</div>
+                    <button
+                        onclick="event.stopPropagation(); openAddModal('{{ category }}')"
+                        class="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        title="Tilføj udgift til {{ category }}"
+                    >
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                    </button>
                 </div>
-            </button>
+            </div>
 
             <!-- Expenses in category (collapsible) -->
             <div id="cat-{{ category|replace(' ', '-') }}" class="border-t border-gray-100 dark:border-gray-700">
@@ -257,12 +263,12 @@
         }
     }
 
-    function openAddModal() {
+    function openAddModal(category = null) {
         form.action = '/budget/expenses/add';
         modalTitle.textContent = 'Tilføj udgift';
         submitText.textContent = 'Tilføj';
         document.getElementById('expense-name').value = '';
-        document.getElementById('expense-category').value = '{{ categories[0].name if categories else "" }}';
+        document.getElementById('expense-category').value = category || '{{ categories[0].name if categories else "" }}';
         document.getElementById('expense-amount').value = '';
         document.querySelector('input[name="frequency"][value="monthly"]').checked = true;
         modal.classList.remove('hidden');
