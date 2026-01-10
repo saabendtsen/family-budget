@@ -44,35 +44,131 @@ A web application for household budget management, built with FastAPI and SQLite
     ```
     The application will be available at `http://localhost:8086/budget/`
 
-## Deployment
+## Self-Hosting Guide
 
-### Docker (Recommended)
+### Quick Start with Docker
 
-1. **Build and start with Docker Compose**:
-    ```bash
-    docker-compose up -d --build
-    ```
-    The application will run in the background, with the database stored in `./data` for persistence.
+```bash
+git clone https://github.com/saabendtsen/family-budget.git
+cd family-budget
+docker compose up -d --build
+```
 
-### Manual VPS Setup
+The application runs on `http://localhost:8086/budget/` with the database persisted in `./data`.
 
-For manual installation on a Linux server (e.g., Ubuntu):
+### Production Setup with Auto-Deploy
 
-1. **Install system dependencies**:
-    ```bash
-    sudo apt update
-    sudo apt install python3-pip python3-venv nginx
-    ```
+For a production server with automatic deployments when you push to GitHub:
 
-2. **Set up virtual environment and install packages**:
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ```
+#### 1. Clone and Initial Setup
 
-3. **Run with Gunicorn/Uvicorn**:
-    It is recommended to use a process manager such as `systemd` for production deployments.
+```bash
+cd ~/projects
+git clone https://github.com/YOUR_USERNAME/family-budget.git
+cd family-budget
+docker compose up -d --build
+```
+
+#### 2. Create Deploy Script
+
+Create `scripts/deploy.sh`:
+```bash
+#!/bin/bash
+set -e
+cd ~/projects/family-budget
+
+BRANCH="main"
+if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+    BRANCH="master"
+fi
+
+git fetch origin "$BRANCH" --quiet
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse "origin/$BRANCH")
+
+if [ "$LOCAL" = "$REMOTE" ]; then
+    exit 0
+fi
+
+echo "[$(date)] New commits detected, deploying..."
+git reset --hard "origin/$BRANCH"
+export APP_VERSION=$(cat VERSION)
+docker compose build --quiet
+docker compose down
+docker compose up -d
+
+sleep 3
+if curl -sf http://localhost:8086/budget/login > /dev/null; then
+    echo "[$(date)] Deploy successful: $(git log -1 --oneline)"
+else
+    echo "[$(date)] Health check failed!"
+    exit 1
+fi
+```
+
+Make it executable: `chmod +x scripts/deploy.sh`
+
+#### 3. Create Systemd Timer (Auto-Deploy)
+
+Create `~/.config/systemd/user/family-budget-deploy.service`:
+```ini
+[Unit]
+Description=Family Budget Auto-Deploy
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/YOUR_USER/projects/family-budget
+ExecStart=/home/YOUR_USER/projects/family-budget/scripts/deploy.sh
+StandardOutput=journal
+StandardError=journal
+```
+
+Create `~/.config/systemd/user/family-budget-deploy.timer`:
+```ini
+[Unit]
+Description=Family Budget Auto-Deploy Timer
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start:
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now family-budget-deploy.timer
+loginctl enable-linger $USER  # Keep timer running without login
+```
+
+#### 4. Reverse Proxy (Optional)
+
+For HTTPS, use a reverse proxy like Caddy or nginx. Example Caddy config:
+```
+budget.yourdomain.com {
+    reverse_proxy localhost:8086
+}
+```
+
+### Manual Setup (Without Docker)
+
+```bash
+sudo apt update
+sudo apt install python3-pip python3-venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python -m src.api
+```
+
+For production, use uvicorn with a process manager:
+```bash
+pip install uvicorn
+uvicorn src.api:app --host 0.0.0.0 --port 8086
+```
 
 ## Project Structure
 

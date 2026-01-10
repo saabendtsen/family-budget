@@ -51,6 +51,36 @@ SQLite database i `data/budget.db` med tabeller:
 Demo mode viser eksempeldata uden login. Tilgås via `/budget/demo`.
 Data er hardcoded i `database.py` og er read-only.
 
+## CI/CD Pipeline
+
+### Automatisk Release (GitHub Actions)
+- **CI:** Tests kører på alle PRs og pushes til master
+- **Release-please:** Opretter automatisk release PRs baseret på conventional commits
+- **Auto-merge:** Release PRs merges automatisk når CI er grøn
+
+### Auto-Deploy (Server-side)
+Systemd timer tjekker hvert minut for nye commits og deployer automatisk:
+
+```bash
+# Status
+systemctl --user status family-budget-deploy.timer
+
+# Logs
+journalctl --user -u family-budget-deploy -f
+
+# Manuel deploy
+~/projects/family-budget/scripts/deploy.sh
+```
+
+**Flow:** Push til master → Release-please PR → Auto-merge → Timer opdager → Git pull → Docker rebuild → Health check
+
+### Filer
+- `.github/workflows/ci.yml` - Test workflow
+- `.github/workflows/release-please.yml` - Automatic releases
+- `.github/workflows/automerge-release.yml` - Auto-merge release PRs
+- `scripts/deploy.sh` - Deploy script
+- `VERSION` - Versions-fil (opdateres af release-please)
+
 ## Feature Branches (ikke merget endnu)
 
 ### `feature/last-login`
