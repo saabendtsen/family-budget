@@ -1,91 +1,82 @@
 # Handoff: Family Budget Feature Implementation
 
-> Oprettet: 2026-01-10
-> Status: Issue 4s3 klar til implementation
+> Opdateret: 2026-01-10
+> Status: Alle P2 og P3 issues har PRs klar til review/merge
 
-## Workflow (som brugeren ønsker)
+## Bemærk: Potentielle overlaps
 
-For hvert issue uden PR:
-1. Spawn sub-agent sekventielt med `/feature-dev:feature-dev`
-2. Hver arbejder på egen branch/worktree
-3. Sub-agent laver plan med spørgsmål først → venter på bruger-svar
-4. Når tests passer: commit, push, opret PR
-5. Rapporter til main session
-6. Main session vurderer og starter næste issue
+Under denne session blev der oprettet GitHub issues #44-52 for features der tidligere kun fandtes i beads. Der kan være overlap med ældre GitHub issues:
 
-## Current Status
+| Nyt issue | Potentielt overlap med | Kommentar |
+|-----------|------------------------|-----------|
+| #45 (månedlig/årlig toggle) | #24 (Årsoverblik) | Forskellige features - #24 handler om visualisering, #45 om periode-toggle |
+| #5 (CLOSED) | - | Quarterly/semi-annual frequencies - allerede implementeret |
 
-### Issue 4s3 - IN PROGRESS
-**Titel:** Tilføj udgift-knap direkte på kategori
-
-**Worktree oprettet:**
-```bash
-~/projects/family-budget-4s3
-Branch: feature/add-expense-button-on-category
-```
-
-**Brugerens beslutninger (bekræftet):**
-- **Placering:** Plus-knap i kategori-headeren, til højre for totalen (før chevron)
-- **Stil:** Diskret grå ikon der bliver blå ved hover
-- Ved klik: Åbn tilføj-udgift modal med kategorien forudvalgt
-
-**Kode-viden fra analyse:**
-- `templates/expenses.html` - Udgiftssiden med kategorier i collapsible sektioner
-- `openAddModal()` - Skal tilpasses til at acceptere optional category parameter
-- Bruger Lucide icons og TailwindCSS
-
-**Status:** Klar til implementation - brugerens spørgsmål er besvaret
+**Beads er fjernet** - projektet bruger nu kun GitHub Issues.
 
 ---
 
-## Remaining P2 Issues (prioriteret rækkefølge)
+## Færdige PRs (klar til merge)
 
-| ID | Beskrivelse |
-|----|-------------|
-| cpd | Toggle mellem månedlig og årlig visning på oversigt |
-| eer | Vis sum af indkomst på indkomstsiden |
-| 929 | Navigation fra oversigt til indkomst/udgift sider |
-| ac3 | Add quarterly and semi-annual expense frequencies |
+### P2 Issues
 
-## P3 Issues
+| GitHub Issue | Titel | PR | Branch |
+|--------------|-------|-----|--------|
+| [#44](https://github.com/saabendtsen/family-budget/issues/44) | Tilføj udgift-knap direkte på kategori | [#35](https://github.com/saabendtsen/family-budget/pull/35) | `feature/add-expense-button-on-category` |
+| [#45](https://github.com/saabendtsen/family-budget/issues/45) | Toggle månedlig/årlig visning på oversigt | [#36](https://github.com/saabendtsen/family-budget/pull/36) | `feature/monthly-yearly-toggle` |
+| [#46](https://github.com/saabendtsen/family-budget/issues/46) | Vis sum af indkomst på indkomstsiden | [#37](https://github.com/saabendtsen/family-budget/pull/37) | `feature/income-sum-display` |
+| [#47](https://github.com/saabendtsen/family-budget/issues/47) | Navigation fra oversigt til indkomst/udgift sider | [#38](https://github.com/saabendtsen/family-budget/pull/38) | `feature/dashboard-navigation` |
 
-| ID | Beskrivelse |
-|----|-------------|
-| 1p9 | GitHub link i hjælp-menuen |
-| wb0 | Fold alle kategorier ind/ud på udgiftsiden |
-| 56g | Sorteringsmuligheder for kategorier på oversigt |
-| nai | Fold kategorier ind/ud på oversigten |
-| 0jf | Opret CI/CD pipeline til automatisk deployment |
+### P3 Issues
 
-## Commands til at fortsætte
+| GitHub Issue | Titel | PR | Branch |
+|--------------|-------|-----|--------|
+| [#48](https://github.com/saabendtsen/family-budget/issues/48) | GitHub link i hjælp-menuen | [#39](https://github.com/saabendtsen/family-budget/pull/39) | `feature/github-link-in-help` |
+| [#49](https://github.com/saabendtsen/family-budget/issues/49) | Fold alle kategorier ind/ud på udgiftsiden | [#40](https://github.com/saabendtsen/family-budget/pull/40) | `feature/collapse-all-categories` |
+| [#50](https://github.com/saabendtsen/family-budget/issues/50) | Sorteringsmuligheder for kategorier på oversigt | [#41](https://github.com/saabendtsen/family-budget/pull/41) | `feature/category-sorting-dashboard` |
+| [#51](https://github.com/saabendtsen/family-budget/issues/51) | Fold kategorier ind/ud på oversigten | [#42](https://github.com/saabendtsen/family-budget/pull/42) | `feature/collapse-categories-dashboard` |
+| [#52](https://github.com/saabendtsen/family-budget/issues/52) | Opret CI/CD pipeline | [#43](https://github.com/saabendtsen/family-budget/pull/43) | `feature/cicd-pipeline` |
+
+---
+
+## Øvrige åbne GitHub Issues (ikke behandlet i denne session)
+
+| # | Titel | Prioritet |
+|---|-------|-----------|
+| 6 | Export data til Excel | Enhancement |
+| 9 | Virtualisering (pie charts) | Enhancement |
+| 20 | Frequency display text til help tooltip | UI |
+| 22 | Feedback/kontakt-funktion | Enhancement |
+| 23 | Note-felt til udgifter | Enhancement |
+| 24 | Årsoverblik med månedlig fordeling | Enhancement |
+| 26 | Flyt version/privacy ind i Help-menu | UI |
+| 28 | Forbedret ikon-vælger til kategorier | UI |
+| 29 | Bug: Version-nummer opdateres ikke | Bug |
+
+---
+
+## Næste skridt
+
+1. Review og merge PRs #35-43
+2. Konfigurer GitHub Secrets for deploy workflow (#43):
+   - `DEPLOY_HOST`
+   - `DEPLOY_USER`
+   - `DEPLOY_SSH_KEY`
+3. Prioriter øvrige åbne issues efter behov
+
+## Commands
 
 ```bash
-# Check status
-cd ~/projects/family-budget && bd ready
+# List åbne issues
+gh issue list
 
-# Se issue detaljer
-bd show family-budget-<id>
+# List PRs
+gh pr list
 
-# Opret worktree for næste issue
-git worktree add ../family-budget-<id> -b feature/<branch-name> origin/master
+# Merge en PR
+gh pr merge <nummer> --squash
 
-# List worktrees
-git worktree list
-
-# Cleanup worktree efter merge
-git worktree remove ../family-budget-<id>
+# Cleanup branch efter merge
+git branch -d <branch-name>
+git push origin --delete <branch-name>
 ```
-
-## Projekt-lokation
-- Main repo: `~/projects/family-budget`
-- Worktree for 4s3: `~/projects/family-budget-4s3`
-
-## Næste skridt for 4s3
-
-1. Åbn `~/projects/family-budget-4s3/templates/expenses.html`
-2. Find kategori-header elementet (har chevron, kategorinavn, antal og total)
-3. Tilføj plus-ikon mellem total og chevron
-4. Modificer `openAddModal()` til at acceptere optional `categoryId` parameter
-5. Tilføj click handler på plus-ikonet der kalder `openAddModal(categoryId)`
-6. Test manuelt + kør eksisterende tests
-7. Commit, push, opret PR
