@@ -49,10 +49,22 @@
 
     <!-- Expense Breakdown -->
     {% if expenses_by_category %}
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Udgifter per kategori</h2>
-    <div class="space-y-3">
+    <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Udgifter per kategori</h2>
+        <select
+            id="category-sort"
+            onchange="sortCategories(this.value)"
+            class="text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+        >
+            <option value="amount-desc">Højeste først</option>
+            <option value="amount-asc">Laveste først</option>
+            <option value="name-asc">A-Å</option>
+            <option value="name-desc">Å-A</option>
+        </select>
+    </div>
+    <div id="category-list" class="space-y-3">
         {% for category, expenses in expenses_by_category.items() %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="category-card bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700" data-category="{{ category }}" data-amount="{{ category_totals[category] }}">
             <div class="flex justify-between items-center mb-2">
                 <div class="font-medium text-gray-900 dark:text-white">{{ category }}</div>
                 <div class="text-gray-600 dark:text-gray-300">{{ format_currency(category_totals[category]) }}/md</div>
@@ -102,4 +114,53 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function sortCategories(sortBy) {
+        const container = document.getElementById('category-list');
+        if (!container) return;
+
+        const cards = Array.from(container.querySelectorAll('.category-card'));
+
+        cards.sort((a, b) => {
+            const nameA = a.dataset.category;
+            const nameB = b.dataset.category;
+            const amountA = parseFloat(a.dataset.amount);
+            const amountB = parseFloat(b.dataset.amount);
+
+            switch (sortBy) {
+                case 'amount-desc':
+                    return amountB - amountA;
+                case 'amount-asc':
+                    return amountA - amountB;
+                case 'name-asc':
+                    return nameA.localeCompare(nameB, 'da');
+                case 'name-desc':
+                    return nameB.localeCompare(nameA, 'da');
+                default:
+                    return 0;
+            }
+        });
+
+        // Re-append sorted cards
+        cards.forEach(card => container.appendChild(card));
+
+        // Save preference
+        localStorage.setItem('categorySortOrder', sortBy);
+    }
+
+    // Restore saved sort preference on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedSort = localStorage.getItem('categorySortOrder');
+        if (savedSort) {
+            const select = document.getElementById('category-sort');
+            if (select) {
+                select.value = savedSort;
+                sortCategories(savedSort);
+            }
+        }
+    });
+</script>
 {% endblock %}
