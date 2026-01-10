@@ -119,6 +119,43 @@
                 <li>• Tjek dit budget regelmæssigt og opdater ved ændringer</li>
             </ul>
         </section>
+
+        <!-- Om Budget -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="info" class="w-5 h-5 mr-2 text-gray-500"></i>
+                Om Budget
+            </h2>
+            <div class="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                {% if app_version %}
+                <p>
+                    <span class="text-gray-500 dark:text-gray-400">Version:</span>
+                    <span class="font-mono">{{ app_version }}</span>
+                </p>
+                {% endif %}
+                <p>
+                    En simpel app til at holde styr på husstandens budget og faste udgifter.
+                </p>
+            </div>
+        </section>
+
+        <!-- Privatlivspolitik -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="shield" class="w-5 h-5 mr-2 text-gray-500"></i>
+                Privatlivspolitik
+            </h2>
+            <div class="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                <p>
+                    Dine data gemmes kun lokalt på serveren og deles ikke med tredjeparter.
+                </p>
+                <p>
+                    <a href="/budget/privacy" class="text-primary hover:underline">
+                        Læs den fulde privatlivspolitik
+                    </a>
+                </p>
+            </div>
+        </section>
     </div>
 </div>
 {% endblock %}
