@@ -30,6 +30,17 @@
 
     <!-- Expense list grouped by category -->
     {% if expenses_by_category %}
+    <!-- Collapse/Expand all button -->
+    <div class="flex justify-end mb-3">
+        <button
+            id="toggle-all-btn"
+            onclick="toggleAllCategories()"
+            class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
+        >
+            <i data-lucide="chevrons-down" id="toggle-all-icon" class="w-4 h-4"></i>
+            <span id="toggle-all-text">Fold alle ind</span>
+        </button>
+    </div>
     <div class="space-y-3">
         {% for category, cat_expenses in expenses_by_category.items() %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -243,6 +254,9 @@
     const modalTitle = document.getElementById('modal-title');
     const submitText = document.getElementById('submit-text');
 
+    // Track if all categories are collapsed
+    let allCollapsed = false;
+
     // Category toggle
     function toggleCategory(categoryId) {
         const content = document.getElementById('cat-' + categoryId);
@@ -255,6 +269,46 @@
             content.classList.add('hidden');
             chevron.style.transform = 'rotate(-90deg)';
         }
+        updateToggleAllButton();
+    }
+
+    // Toggle all categories
+    function toggleAllCategories() {
+        const contents = document.querySelectorAll('[id^="cat-"]');
+        const chevrons = document.querySelectorAll('[id^="chevron-"]');
+
+        if (allCollapsed) {
+            // Expand all
+            contents.forEach(content => content.classList.remove('hidden'));
+            chevrons.forEach(chevron => chevron.style.transform = 'rotate(0deg)');
+        } else {
+            // Collapse all
+            contents.forEach(content => content.classList.add('hidden'));
+            chevrons.forEach(chevron => chevron.style.transform = 'rotate(-90deg)');
+        }
+        allCollapsed = !allCollapsed;
+        updateToggleAllButton();
+    }
+
+    // Update toggle all button text and icon
+    function updateToggleAllButton() {
+        const contents = document.querySelectorAll('[id^="cat-"]');
+        const hiddenCount = Array.from(contents).filter(c => c.classList.contains('hidden')).length;
+        const toggleText = document.getElementById('toggle-all-text');
+        const toggleIcon = document.getElementById('toggle-all-icon');
+
+        if (hiddenCount === contents.length) {
+            // All collapsed
+            allCollapsed = true;
+            toggleText.textContent = 'Fold alle ud';
+            toggleIcon.setAttribute('data-lucide', 'chevrons-up');
+        } else {
+            // Some or all expanded
+            allCollapsed = false;
+            toggleText.textContent = 'Fold alle ind';
+            toggleIcon.setAttribute('data-lucide', 'chevrons-down');
+        }
+        lucide.createIcons();
     }
 
     function openAddModal() {
