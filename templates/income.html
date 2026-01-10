@@ -11,6 +11,22 @@
         <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Indkomst efter skat (beregnes til månedlig)</p>
     </div>
 
+    <!-- Total Income Summary -->
+    {% set total_income = incomes|sum(attribute='monthly_amount') %}
+    {% if incomes|length > 0 %}
+    <div class="bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl p-4 mb-6 text-white shadow-md">
+        <div class="flex justify-between items-center">
+            <div>
+                <div class="text-sm opacity-90">Samlet månedlig indkomst</div>
+                <div class="text-2xl font-bold">{{ format_currency(total_income) }}</div>
+            </div>
+            <div class="text-right text-sm opacity-75">
+                {{ incomes|length }} {% if incomes|length == 1 %}kilde{% else %}kilder{% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if demo_mode %}
     <div class="mb-4 bg-amber-50 dark:bg-amber-900/30 rounded-xl p-4 text-amber-800 dark:text-amber-200 text-sm">
         <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
