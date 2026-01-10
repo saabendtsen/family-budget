@@ -35,22 +35,28 @@
     <!-- Summary Cards -->
     <div class="grid grid-cols-2 gap-3 mb-6">
         <!-- Income -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mb-1">
-                <i data-lucide="trending-up" class="w-4 h-4 text-success"></i>
-                Indkomst
+        <a href="/budget/income" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-colors group">
+            <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 text-sm mb-1">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="trending-up" class="w-4 h-4 text-success"></i>
+                    Indkomst
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i>
             </div>
             <div class="text-lg font-bold text-gray-900 dark:text-white" data-monthly="{{ total_income }}" data-yearly="{{ total_income * 12 }}">{{ format_currency(total_income) }}</div>
-        </div>
+        </a>
 
         <!-- Expenses -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mb-1">
-                <i data-lucide="trending-down" class="w-4 h-4 text-danger"></i>
-                Udgifter
+        <a href="/budget/expenses" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-colors group">
+            <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 text-sm mb-1">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="trending-down" class="w-4 h-4 text-danger"></i>
+                    Udgifter
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i>
             </div>
             <div class="text-lg font-bold text-gray-900 dark:text-white" data-monthly="{{ total_expenses }}" data-yearly="{{ total_expenses * 12 }}">{{ format_currency(total_expenses) }}</div>
-        </div>
+        </a>
     </div>
 
     <!-- Remaining (Featured) -->
@@ -111,8 +117,11 @@
     {% endif %}
 
     <!-- Income breakdown (small) -->
-    <div class="mt-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-4">
-        <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Indkomst fordeling</div>
+    <a href="/budget/income" class="block mt-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-4 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors group">
+        <div class="flex justify-between items-center mb-2">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Indkomst fordeling</div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+        </div>
         <div class="flex justify-between text-sm">
             {% for income in incomes %}
             <div>
@@ -121,7 +130,7 @@
             </div>
             {% endfor %}
         </div>
-    </div>
+    </a>
 </div>
 {% endblock %}
 
