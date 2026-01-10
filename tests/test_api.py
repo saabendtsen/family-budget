@@ -499,6 +499,70 @@ class TestHelpers:
         assert format_currency(0) == "0 kr"
 
 
+class TestExport:
+    """Tests for CSV export functionality."""
+
+    def test_export_requires_auth(self, client):
+        """Export endpoint should require authentication."""
+        response = client.get("/budget/export", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/budget/login"
+
+    def test_export_returns_csv(self, authenticated_client):
+        """Export should return a CSV file."""
+        response = authenticated_client.get("/budget/export")
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+        assert "attachment" in response.headers["content-disposition"]
+        assert ".csv" in response.headers["content-disposition"]
+
+    def test_export_contains_headers(self, authenticated_client):
+        """Export CSV should contain expected section headers."""
+        response = authenticated_client.get("/budget/export")
+        content = response.text
+
+        assert "INDKOMST" in content
+        assert "UDGIFTER" in content
+        assert "OPSUMMERING" in content
+
+    def test_export_uses_semicolon_separator(self, authenticated_client):
+        """Export CSV should use semicolon separator for Danish Excel."""
+        response = authenticated_client.get("/budget/export")
+        content = response.text
+
+        # Headers should use semicolon
+        assert "Kilde;Beløb;Frekvens;Månedligt beløb" in content
+
+    def test_export_with_data(self, authenticated_client, db_module):
+        """Export should include user's income and expenses."""
+        user_id = authenticated_client.user_id
+
+        # Add some test data
+        db_module.add_income(user_id, "Test Løn", 30000, "monthly")
+        db_module.add_expense(user_id, "Test Husleje", "Bolig", 10000, "monthly")
+
+        response = authenticated_client.get("/budget/export")
+        content = response.text
+
+        assert "Test Løn" in content
+        assert "30000" in content
+        assert "Test Husleje" in content
+        assert "10000" in content
+
+    def test_export_demo_mode(self, client):
+        """Export should work in demo mode."""
+        # Manually set demo cookie (bypasses secure cookie issue in TestClient)
+        client.cookies.set("budget_session", "demo")
+
+        # Now export should work with demo data
+        response = client.get("/budget/export")
+        assert response.status_code == 200
+        content = response.text
+
+        # Demo data should be present
+        assert "Person 1" in content or "Person 2" in content
+
+
 class TestRateLimiting:
     """Tests for rate limiting middleware."""
 

@@ -8,9 +8,14 @@
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Budget</h1>
-        <a href="/budget/logout" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-            <i data-lucide="log-out" class="w-5 h-5"></i>
-        </a>
+        <div class="flex items-center gap-3">
+            <a href="/budget/export" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Eksporter til Excel">
+                <i data-lucide="download" class="w-5 h-5"></i>
+            </a>
+            <a href="/budget/logout" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i data-lucide="log-out" class="w-5 h-5"></i>
+            </a>
+        </div>
     </div>
 
     <!-- Summary Cards -->
