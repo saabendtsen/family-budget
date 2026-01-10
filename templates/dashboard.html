@@ -8,9 +8,28 @@
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Budget</h1>
-        <a href="/budget/logout" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-            <i data-lucide="log-out" class="w-5 h-5"></i>
-        </a>
+        <div class="flex items-center gap-3">
+            <!-- Period Toggle -->
+            <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <button
+                    id="btn-monthly"
+                    onclick="setPeriod('monthly')"
+                    class="px-3 py-1 text-sm font-medium rounded-md transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                >
+                    Måned
+                </button>
+                <button
+                    id="btn-yearly"
+                    onclick="setPeriod('yearly')"
+                    class="px-3 py-1 text-sm font-medium rounded-md transition-colors text-gray-500 dark:text-gray-400"
+                >
+                    År
+                </button>
+            </div>
+            <a href="/budget/logout" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i data-lucide="log-out" class="w-5 h-5"></i>
+            </a>
+        </div>
     </div>
 
     <!-- Summary Cards -->
@@ -21,7 +40,7 @@
                 <i data-lucide="trending-up" class="w-4 h-4 text-success"></i>
                 Indkomst
             </div>
-            <div class="text-lg font-bold text-gray-900 dark:text-white">{{ format_currency(total_income) }}</div>
+            <div class="text-lg font-bold text-gray-900 dark:text-white" data-monthly="{{ total_income }}" data-yearly="{{ total_income * 12 }}">{{ format_currency(total_income) }}</div>
         </div>
 
         <!-- Expenses -->
@@ -30,14 +49,14 @@
                 <i data-lucide="trending-down" class="w-4 h-4 text-danger"></i>
                 Udgifter
             </div>
-            <div class="text-lg font-bold text-gray-900 dark:text-white">{{ format_currency(total_expenses) }}</div>
+            <div class="text-lg font-bold text-gray-900 dark:text-white" data-monthly="{{ total_expenses }}" data-yearly="{{ total_expenses * 12 }}">{{ format_currency(total_expenses) }}</div>
         </div>
     </div>
 
     <!-- Remaining (Featured) -->
     <div class="bg-gradient-to-r {% if remaining >= 0 %}from-emerald-500 to-green-600{% else %}from-red-500 to-rose-600{% endif %} rounded-2xl p-6 mb-6 text-white shadow-lg">
-        <div class="text-sm opacity-90 mb-1">Til fri brug</div>
-        <div class="text-3xl font-bold">{{ format_currency(remaining) }}</div>
+        <div class="text-sm opacity-90 mb-1">Til fri brug<span class="period-suffix">/md</span></div>
+        <div class="text-3xl font-bold" data-monthly="{{ remaining }}" data-yearly="{{ remaining * 12 }}">{{ format_currency(remaining) }}</div>
         <div class="text-sm opacity-75 mt-2">
             {% if remaining >= 0 %}
             {{ "%.0f"|format((remaining / total_income * 100) if total_income > 0 else 0) }}% af indkomst
@@ -55,7 +74,9 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <div class="flex justify-between items-center mb-2">
                 <div class="font-medium text-gray-900 dark:text-white">{{ category }}</div>
-                <div class="text-gray-600 dark:text-gray-300">{{ format_currency(category_totals[category]) }}/md</div>
+                <div class="text-gray-600 dark:text-gray-300">
+                    <span data-monthly="{{ category_totals[category] }}" data-yearly="{{ category_totals[category] * 12 }}">{{ format_currency(category_totals[category]) }}</span><span class="period-suffix">/md</span>
+                </div>
             </div>
 
             <!-- Individual expenses -->
@@ -64,9 +85,9 @@
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600 dark:text-gray-400">{{ expense.name }}</span>
                     <span class="text-gray-900 dark:text-gray-200">
-                        {{ format_currency(expense.monthly_amount) }}
-                        {% if expense.frequency == 'yearly' %}
-                        <span class="text-gray-400 dark:text-gray-500 text-xs">({{ format_currency(expense.amount) }}/år)</span>
+                        <span data-monthly="{{ expense.monthly_amount }}" data-yearly="{{ expense.monthly_amount * 12 }}">{{ format_currency(expense.monthly_amount) }}</span>
+                        {% if expense.frequency != 'monthly' %}
+                        <span class="text-gray-400 dark:text-gray-500 text-xs original-frequency">({{ format_currency(expense.amount) }}/{% if expense.frequency == 'yearly' %}år{% elif expense.frequency == 'quarterly' %}kvartal{% elif expense.frequency == 'semi-annual' %}halvår{% endif %})</span>
                         {% endif %}
                     </span>
                 </div>
@@ -96,10 +117,65 @@
             {% for income in incomes %}
             <div>
                 <span class="text-gray-600 dark:text-gray-400">{{ income.person }}:</span>
-                <span class="font-medium text-gray-900 dark:text-white">{{ format_currency(income.monthly_amount) }}</span>
+                <span class="font-medium text-gray-900 dark:text-white" data-monthly="{{ income.monthly_amount }}" data-yearly="{{ income.monthly_amount * 12 }}">{{ format_currency(income.monthly_amount) }}</span>
             </div>
             {% endfor %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('da-DK', {
+            style: 'decimal',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(Math.round(amount)) + ' kr';
+    }
+
+    function setPeriod(period) {
+        const btnMonthly = document.getElementById('btn-monthly');
+        const btnYearly = document.getElementById('btn-yearly');
+        const suffixes = document.querySelectorAll('.period-suffix');
+        const originalFrequencies = document.querySelectorAll('.original-frequency');
+
+        // Update button styles
+        if (period === 'monthly') {
+            btnMonthly.className = 'px-3 py-1 text-sm font-medium rounded-md transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm';
+            btnYearly.className = 'px-3 py-1 text-sm font-medium rounded-md transition-colors text-gray-500 dark:text-gray-400';
+        } else {
+            btnYearly.className = 'px-3 py-1 text-sm font-medium rounded-md transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm';
+            btnMonthly.className = 'px-3 py-1 text-sm font-medium rounded-md transition-colors text-gray-500 dark:text-gray-400';
+        }
+
+        // Update all values with data attributes
+        document.querySelectorAll('[data-monthly]').forEach(el => {
+            const value = parseFloat(el.dataset[period]);
+            el.textContent = formatCurrency(value);
+        });
+
+        // Update period suffixes
+        suffixes.forEach(el => {
+            el.textContent = period === 'monthly' ? '/md' : '/år';
+        });
+
+        // Hide/show original frequency annotations in yearly view
+        originalFrequencies.forEach(el => {
+            el.style.display = period === 'yearly' ? 'none' : '';
+        });
+
+        // Save preference
+        localStorage.setItem('budgetPeriod', period);
+    }
+
+    // Restore saved preference on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedPeriod = localStorage.getItem('budgetPeriod');
+        if (savedPeriod === 'yearly') {
+            setPeriod('yearly');
+        }
+    });
+</script>
 {% endblock %}
