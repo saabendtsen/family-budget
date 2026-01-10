@@ -499,6 +499,67 @@ class TestHelpers:
         assert format_currency(0) == "0 kr"
 
 
+class TestPieChart:
+    """Tests for expense pie chart functionality."""
+
+    def test_dashboard_has_chart_canvas(self, authenticated_client, db_module):
+        """Dashboard should have chart canvas when there are expenses."""
+        user_id = authenticated_client.user_id
+
+        # Add some test data
+        db_module.add_income(user_id, "Løn", 30000, "monthly")
+        db_module.add_expense(user_id, "Husleje", "Bolig", 8000, "monthly")
+        db_module.add_expense(user_id, "Mad", "Forbrug", 4000, "monthly")
+
+        response = authenticated_client.get("/budget/")
+        assert response.status_code == 200
+        assert 'id="expenseChart"' in response.text
+
+    def test_dashboard_has_chart_legend(self, authenticated_client, db_module):
+        """Dashboard should have chart legend when there are expenses."""
+        user_id = authenticated_client.user_id
+
+        db_module.add_expense(user_id, "Husleje", "Bolig", 8000, "monthly")
+
+        response = authenticated_client.get("/budget/")
+        assert response.status_code == 200
+        assert 'id="chartLegend"' in response.text
+
+    def test_dashboard_no_chart_without_expenses(self, authenticated_client):
+        """Dashboard should not show chart when no expenses."""
+        response = authenticated_client.get("/budget/")
+        assert response.status_code == 200
+        assert 'id="expenseChart"' not in response.text
+
+    def test_chart_includes_category_data(self, authenticated_client, db_module):
+        """Chart script should include category data."""
+        user_id = authenticated_client.user_id
+
+        db_module.add_expense(user_id, "Husleje", "Bolig", 8000, "monthly")
+        db_module.add_expense(user_id, "El", "Forbrug", 500, "monthly")
+
+        response = authenticated_client.get("/budget/")
+        assert response.status_code == 200
+        assert "Bolig" in response.text
+        assert "Forbrug" in response.text
+
+    def test_demo_mode_shows_chart(self, client):
+        """Demo mode should show pie chart with demo data."""
+        client.cookies.set("budget_session", "demo")
+        response = client.get("/budget/")
+        assert response.status_code == 200
+        assert 'id="expenseChart"' in response.text
+
+    def test_chart_js_loaded(self, authenticated_client, db_module):
+        """Chart.js should be loaded in the page."""
+        user_id = authenticated_client.user_id
+        db_module.add_expense(user_id, "Test", "Bolig", 1000, "monthly")
+
+        response = authenticated_client.get("/budget/")
+        assert response.status_code == 200
+        assert "chart.js" in response.text.lower() or "Chart(" in response.text
+
+
 class TestRateLimiting:
     """Tests for rate limiting middleware."""
 

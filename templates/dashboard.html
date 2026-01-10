@@ -47,6 +47,20 @@
         </div>
     </div>
 
+    <!-- Expense Pie Chart -->
+    {% if category_totals %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-5 h-5 text-primary"></i>
+            Udgiftsfordeling
+        </h2>
+        <div class="relative" style="height: 220px;">
+            <canvas id="expenseChart"></canvas>
+        </div>
+        <div id="chartLegend" class="mt-4 grid grid-cols-2 gap-2 text-sm"></div>
+    </div>
+    {% endif %}
+
     <!-- Expense Breakdown -->
     {% if expenses_by_category %}
     <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Udgifter per kategori</h2>
@@ -102,4 +116,115 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if category_totals %}
+<script>
+(function() {
+    // Chart data from server
+    const categoryData = {
+        {% for category, total in category_totals.items() %}
+        "{{ category }}": {{ total }},
+        {% endfor %}
+    };
+
+    const totalExpenses = {{ total_expenses }};
+
+    // Sort categories by value descending
+    const sortedCategories = Object.entries(categoryData)
+        .sort((a, b) => b[1] - a[1]);
+
+    // Group small categories (< 5% or beyond top 6) as "Andet"
+    const MAX_CATEGORIES = 6;
+    const MIN_PERCENTAGE = 5;
+    let chartCategories = [];
+    let otherTotal = 0;
+
+    sortedCategories.forEach(([name, value], index) => {
+        const percentage = totalExpenses > 0 ? (value / totalExpenses) * 100 : 0;
+        if (index < MAX_CATEGORIES && percentage >= MIN_PERCENTAGE) {
+            chartCategories.push({ name, value, percentage });
+        } else {
+            otherTotal += value;
+        }
+    });
+
+    // Add "Andet" if there are grouped categories
+    if (otherTotal > 0) {
+        const otherPercentage = totalExpenses > 0 ? (otherTotal / totalExpenses) * 100 : 0;
+        chartCategories.push({ name: 'Andet', value: otherTotal, percentage: otherPercentage });
+    }
+
+    // Color palette
+    const colors = [
+        '#3b82f6', // blue
+        '#10b981', // green
+        '#f59e0b', // amber
+        '#ef4444', // red
+        '#8b5cf6', // purple
+        '#ec4899', // pink
+        '#6b7280', // gray (for "Andet")
+    ];
+
+    // Prepare chart data
+    const labels = chartCategories.map(c => c.name);
+    const values = chartCategories.map(c => c.value);
+    const backgroundColors = chartCategories.map((_, i) => colors[i % colors.length]);
+
+    // Check if dark mode
+    const isDark = document.documentElement.classList.contains('dark');
+    const textColor = isDark ? '#e5e7eb' : '#374151';
+
+    // Create chart
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: backgroundColors,
+                borderColor: isDark ? '#1f2937' : '#ffffff',
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: {
+                    display: false, // We'll use custom legend
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const percentage = totalExpenses > 0 ? ((value / totalExpenses) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${value.toLocaleString('da-DK')} kr (${percentage}%)`;
+                        }
+                    },
+                    backgroundColor: isDark ? '#374151' : '#1f2937',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    padding: 12,
+                    cornerRadius: 8,
+                }
+            }
+        }
+    });
+
+    // Create custom legend
+    const legendContainer = document.getElementById('chartLegend');
+    legendContainer.innerHTML = chartCategories.map((cat, i) => `
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${colors[i % colors.length]}"></div>
+            <span class="text-gray-600 dark:text-gray-400 truncate">${cat.name}</span>
+            <span class="text-gray-900 dark:text-white font-medium ml-auto">${cat.percentage.toFixed(0)}%</span>
+        </div>
+    `).join('');
+})();
+</script>
+{% endif %}
 {% endblock %}
