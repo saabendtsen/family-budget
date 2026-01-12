@@ -10,27 +10,21 @@ class TestChartRendering:
         """Chart section should render even for new users without data."""
         authenticated_page.goto(f"{base_url}/budget/")
 
-        # Visualization section should be visible
-        expect(authenticated_page.locator("text=Visualisering")).to_be_visible()
+        # Empty user shows "Ingen data" for category chart
+        expect(authenticated_page.locator("text=Ingen data")).to_be_visible()
 
-        # Income/Expenses chart should always render (shows 0 values)
-        expect(authenticated_page.locator("#chart-income-expenses")).to_be_visible()
-
-        # Empty user shows "Ingen data" for category and top expenses charts
-        expect(authenticated_page.locator("text=Ingen data").first).to_be_visible()
-
-    def test_visualisering_section_visible(self, authenticated_page: Page, base_url: str):
-        """Visualisering section header should be visible."""
+    def test_chart_label_visible(self, authenticated_page: Page, base_url: str):
+        """Chart label should be visible."""
         authenticated_page.goto(f"{base_url}/budget/")
 
-        expect(authenticated_page.locator("text=Visualisering")).to_be_visible()
+        expect(authenticated_page.locator("text=Udgiftsfordeling")).to_be_visible()
 
 
 class TestChartResponsive:
     """Tests for responsive chart behavior."""
 
-    def test_chart_section_renders_on_mobile(self, page: Page, base_url: str):
-        """Chart section should render properly on mobile viewport."""
+    def test_chart_renders_on_mobile(self, page: Page, base_url: str):
+        """Chart should render properly on mobile viewport."""
         # Use demo mode to have actual chart data
         page.goto(f"{base_url}/budget/demo")
         page.wait_for_url(f"{base_url}/budget/")
@@ -38,13 +32,11 @@ class TestChartResponsive:
         page.set_viewport_size({"width": 375, "height": 667})
         page.reload()
 
-        # Charts should be visible with demo data
+        # Pie chart should be visible with demo data
         expect(page.locator("#chart-categories")).to_be_visible()
-        expect(page.locator("#chart-income-expenses")).to_be_visible()
-        expect(page.locator("#chart-top-expenses")).to_be_visible()
 
-    def test_chart_section_renders_on_small_viewport(self, page: Page, base_url: str):
-        """Chart section should render properly on smallest mobile viewport."""
+    def test_chart_renders_on_small_viewport(self, page: Page, base_url: str):
+        """Chart should render properly on smallest mobile viewport."""
         # Use demo mode to have actual chart data
         page.goto(f"{base_url}/budget/demo")
         page.wait_for_url(f"{base_url}/budget/")
@@ -52,32 +44,30 @@ class TestChartResponsive:
         page.set_viewport_size({"width": 320, "height": 568})
         page.reload()
 
-        # Charts should still be visible
+        # Chart should still be visible
         expect(page.locator("#chart-categories")).to_be_visible()
 
 
 class TestDemoCharts:
     """Tests for charts in demo mode."""
 
-    def test_demo_charts_show_data(self, page: Page, base_url: str):
-        """Demo mode should display charts with demo data."""
+    def test_demo_chart_shows_data(self, page: Page, base_url: str):
+        """Demo mode should display pie chart with demo data."""
         page.goto(f"{base_url}/budget/demo")
         page.wait_for_url(f"{base_url}/budget/")
 
-        # All chart canvases should be visible
+        # Pie chart should be visible
         expect(page.locator("#chart-categories")).to_be_visible()
-        expect(page.locator("#chart-income-expenses")).to_be_visible()
-        expect(page.locator("#chart-top-expenses")).to_be_visible()
 
-    def test_demo_charts_have_content(self, page: Page, base_url: str):
-        """Demo mode charts should have actual rendered content."""
+    def test_demo_chart_has_content(self, page: Page, base_url: str):
+        """Demo mode chart should have actual rendered content."""
         page.goto(f"{base_url}/budget/demo")
         page.wait_for_url(f"{base_url}/budget/")
 
-        # Wait for charts to render (Chart.js needs a moment)
+        # Wait for chart to render (Chart.js needs a moment)
         page.wait_for_timeout(1000)
 
-        # Canvases should have non-zero dimensions (indicating content)
+        # Canvas should have non-zero dimensions (indicating content)
         canvas = page.locator("#chart-categories")
         box = canvas.bounding_box()
         assert box is not None
@@ -85,23 +75,22 @@ class TestDemoCharts:
         assert box["height"] > 0
 
 
-class TestChartLabels:
-    """Tests for chart section labels."""
+class TestChartPosition:
+    """Tests for chart position on dashboard."""
 
-    def test_income_expenses_label(self, authenticated_page: Page, base_url: str):
-        """Income vs Expenses chart should have correct label."""
-        authenticated_page.goto(f"{base_url}/budget/")
+    def test_chart_at_bottom_of_page(self, page: Page, base_url: str):
+        """Chart should be positioned at the bottom of the dashboard."""
+        page.goto(f"{base_url}/budget/demo")
+        page.wait_for_url(f"{base_url}/budget/")
 
-        expect(authenticated_page.locator("text=Indkomst vs Udgifter")).to_be_visible()
+        # Income breakdown should appear before chart
+        income_breakdown = page.locator("text=Indkomst fordeling")
+        chart = page.locator("#chart-categories")
 
-    def test_category_chart_label(self, authenticated_page: Page, base_url: str):
-        """Category chart should have correct label."""
-        authenticated_page.goto(f"{base_url}/budget/")
+        income_box = income_breakdown.bounding_box()
+        chart_box = chart.bounding_box()
 
-        expect(authenticated_page.locator("h3:has-text('Udgifter per kategori')")).to_be_visible()
-
-    def test_top_expenses_label(self, authenticated_page: Page, base_url: str):
-        """Top expenses chart should have correct label."""
-        authenticated_page.goto(f"{base_url}/budget/")
-
-        expect(authenticated_page.locator("text=Top 5 udgifter")).to_be_visible()
+        assert income_box is not None
+        assert chart_box is not None
+        # Chart should be below income breakdown
+        assert chart_box["y"] > income_box["y"]

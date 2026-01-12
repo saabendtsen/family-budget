@@ -72,35 +72,6 @@
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="mb-6 space-y-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Visualisering</h2>
-
-        <!-- Income vs Expenses Chart -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Indkomst vs Udgifter</h3>
-            <div class="h-48">
-                <canvas id="chart-income-expenses"></canvas>
-            </div>
-        </div>
-
-        <!-- Category Pie Chart -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Udgifter per kategori</h3>
-            <div class="h-64">
-                <canvas id="chart-categories"></canvas>
-            </div>
-        </div>
-
-        <!-- Top 5 Expenses Chart -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Top 5 udgifter</h3>
-            <div class="h-48">
-                <canvas id="chart-top-expenses"></canvas>
-            </div>
-        </div>
-    </div>
-
     <!-- Expense Breakdown -->
     {% if expenses_by_category %}
     <div class="flex justify-between items-center mb-3">
@@ -191,6 +162,14 @@
             {% endfor %}
         </div>
     </a>
+
+    <!-- Category Pie Chart -->
+    <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Udgiftsfordeling</h3>
+        <div class="h-64">
+            <canvas id="chart-categories"></canvas>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -347,10 +326,8 @@
         initCharts();
     });
 
-    // === Chart Visualizations ===
+    // === Chart Visualization ===
     let categoryChart = null;
-    let incomeExpenseChart = null;
-    let topExpensesChart = null;
 
     // Color palette for charts (matches TailwindCSS colors)
     const chartColors = [
@@ -370,10 +347,7 @@
             if (!response.ok) return;
 
             const data = await response.json();
-
-            renderIncomeExpenseChart(data.total_income, data.total_expenses);
             renderCategoryChart(data.category_totals);
-            renderTopExpensesChart(data.top_expenses);
         } catch (error) {
             console.error('Failed to load chart data:', error);
         }
@@ -424,108 +398,6 @@
                                 const percentage = ((value / total) * 100).toFixed(1);
                                 return `${context.label}: ${formatCurrency(value)} (${percentage}%)`;
                             }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    function renderIncomeExpenseChart(income, expenses) {
-        const ctx = document.getElementById('chart-income-expenses');
-        if (!ctx) return;
-
-        if (incomeExpenseChart) incomeExpenseChart.destroy();
-
-        incomeExpenseChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Indkomst', 'Udgifter'],
-                datasets: [{
-                    data: [income, expenses],
-                    backgroundColor: ['#10b981', '#ef4444'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '60%',
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563',
-                            usePointStyle: true
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.label}: ${formatCurrency(context.raw)}`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    function renderTopExpensesChart(topExpenses) {
-        const ctx = document.getElementById('chart-top-expenses');
-        if (!ctx) return;
-
-        if (topExpenses.length === 0) {
-            ctx.parentElement.innerHTML = '<p class="text-gray-400 text-center py-8">Ingen data</p>';
-            return;
-        }
-
-        if (topExpensesChart) topExpensesChart.destroy();
-
-        topExpensesChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: topExpenses.map(e => e.name),
-                datasets: [{
-                    data: topExpenses.map(e => e.amount),
-                    backgroundColor: '#3b82f6',
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return formatCurrency(context.raw);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: {
-                            callback: function(value) {
-                                return formatCurrency(value);
-                            },
-                            color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563'
-                        },
-                        grid: {
-                            color: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb'
-                        }
-                    },
-                    y: {
-                        ticks: {
-                            color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563'
-                        },
-                        grid: {
-                            display: false
                         }
                     }
                 }
