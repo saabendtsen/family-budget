@@ -499,6 +499,79 @@ class TestHelpers:
         assert format_currency(0) == "0 kr"
 
 
+class TestFeedback:
+    """Tests for feedback functionality."""
+
+    def test_feedback_page_requires_auth(self, client):
+        """Feedback page should require authentication."""
+        response = client.get("/budget/feedback", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/budget/login"
+
+    def test_feedback_page_loads(self, authenticated_client):
+        """Feedback page should load for authenticated users."""
+        response = authenticated_client.get("/budget/feedback")
+        assert response.status_code == 200
+        assert "feedback" in response.text.lower()
+
+    def test_feedback_submit_requires_auth(self, client):
+        """Feedback submission should require authentication."""
+        response = client.post(
+            "/budget/feedback",
+            data={
+                "feedback_type": "feedback",
+                "description": "This is test feedback.",
+            },
+            follow_redirects=False
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/budget/login"
+
+    def test_feedback_submit_validates_description(self, authenticated_client):
+        """Feedback should require minimum description length."""
+        response = authenticated_client.post(
+            "/budget/feedback",
+            data={
+                "feedback_type": "feedback",
+                "description": "Short",
+            }
+        )
+        assert response.status_code == 200
+        assert "mindst 10 tegn" in response.text
+
+    def test_feedback_submit_success(self, authenticated_client):
+        """Valid feedback should be accepted."""
+        response = authenticated_client.post(
+            "/budget/feedback",
+            data={
+                "feedback_type": "feature",
+                "description": "This is a valid feature request with enough text.",
+            }
+        )
+        assert response.status_code == 200
+        assert "Tak for din feedback" in response.text
+
+    def test_feedback_honeypot_rejects_bots(self, authenticated_client):
+        """Honeypot field should silently reject bot submissions."""
+        response = authenticated_client.post(
+            "/budget/feedback",
+            data={
+                "feedback_type": "feedback",
+                "description": "This is spam from a bot.",
+                "website": "http://spam.com",  # Honeypot filled = bot
+            }
+        )
+        # Should pretend success to fool bots
+        assert response.status_code == 200
+        assert "Tak for din feedback" in response.text
+
+    def test_help_page_has_feedback_link(self, authenticated_client):
+        """Help page should have a link to feedback."""
+        response = authenticated_client.get("/budget/help")
+        assert response.status_code == 200
+        assert "/budget/feedback" in response.text
+
+
 class TestRateLimiting:
     """Tests for rate limiting middleware."""
 
