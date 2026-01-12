@@ -43,7 +43,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="text-sm text-gray-400 dark:text-gray-500">{{ cat.icon }}</div>
             </div>
             <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                 <button
@@ -84,19 +83,6 @@
         <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">Tryk på + for at tilføje en kategori</p>
     </div>
     {% endif %}
-
-    <!-- Available icons -->
-    <div class="mt-6 bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-        <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Tilgængelige ikoner (Lucide)</div>
-        <div class="flex flex-wrap gap-3">
-            {% for icon in ['house', 'zap', 'car', 'baby', 'utensils', 'shield', 'tv', 'piggy-bank', 'heart', 'star', 'gift', 'plane', 'book', 'music', 'camera', 'phone', 'wifi', 'coffee', 'shopping-cart', 'credit-card'] %}
-            <div class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" title="{{ icon }}">
-                <i data-lucide="{{ icon }}" class="w-5 h-5"></i>
-                <span class="text-[10px]">{{ icon }}</span>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
 </div>
 
 <!-- Add/Edit Modal -->
@@ -123,16 +109,22 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ikon (Lucide navn)</label>
-                <input
-                    type="text"
-                    name="icon"
-                    id="category-icon"
-                    placeholder="f.eks. heart"
-                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    required
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ikon</label>
+                <input type="hidden" name="icon" id="category-icon" value="folder" required>
+                <button
+                    type="button"
+                    id="icon-picker-trigger"
+                    onclick="openIconPicker()"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex items-center justify-between hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                 >
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Se ikoner på lucide.dev eller i listen herover</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                            <i id="selected-icon-preview" data-lucide="folder" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                        </div>
+                        <span id="selected-icon-name" class="text-gray-600 dark:text-gray-300">folder</span>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+                </button>
             </div>
 
             <button
@@ -143,6 +135,25 @@
                 <span id="submit-text">Tilføj</span>
             </button>
         </form>
+    </div>
+</div>
+
+<!-- Icon Picker Modal -->
+<div id="icon-picker-modal" class="fixed inset-0 bg-black/50 flex items-end justify-center z-[60] hidden">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl p-6 animate-slide-up max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Vælg ikon</h2>
+            <button onclick="closeIconPicker()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <!-- Icon grid -->
+        <div class="overflow-y-auto flex-1 -mx-2 px-2">
+            <div class="grid grid-cols-5 gap-2" id="icon-grid">
+                <!-- Icons will be rendered by JavaScript -->
+            </div>
+        </div>
     </div>
 </div>
 
@@ -159,17 +170,101 @@
 
 {% block scripts %}
 <script>
+    // Available icons curated for budget app
+    const AVAILABLE_ICONS = [
+        // Bolig
+        'house', 'home', 'building', 'door-open', 'key',
+        // Transport
+        'car', 'bus', 'train', 'plane', 'bike', 'fuel',
+        // Forbrug
+        'zap', 'flame', 'droplet', 'wifi', 'thermometer',
+        // Mad & Drikke
+        'utensils', 'coffee', 'wine', 'shopping-cart', 'apple',
+        // Familie
+        'baby', 'users', 'heart', 'gift', 'cake',
+        // Finans
+        'piggy-bank', 'wallet', 'credit-card', 'coins', 'banknote',
+        // Underholdning
+        'tv', 'gamepad-2', 'music', 'film', 'headphones',
+        // Sundhed
+        'pill', 'activity', 'stethoscope', 'heart-pulse',
+        // Sport & Fritid
+        'dumbbell', 'bike', 'tent', 'mountain',
+        // Uddannelse
+        'graduation-cap', 'book', 'pencil', 'backpack',
+        // Kommunikation
+        'phone', 'smartphone', 'mail', 'message-circle',
+        // Diverse
+        'shield', 'briefcase', 'folder', 'tag', 'star',
+        'gift', 'package', 'tool', 'wrench', 'scissors',
+        'dog', 'cat', 'paw-print', 'flower-2', 'sun',
+        'umbrella', 'cloud', 'calendar', 'clock', 'bell'
+    ];
+
     const modal = document.getElementById('modal');
+    const iconPickerModal = document.getElementById('icon-picker-modal');
     const form = document.getElementById('category-form');
     const modalTitle = document.getElementById('modal-title');
     const submitText = document.getElementById('submit-text');
+    const iconGrid = document.getElementById('icon-grid');
+
+    // Render icon grid
+    function renderIconGrid() {
+        iconGrid.innerHTML = AVAILABLE_ICONS.map(icon => `
+            <button
+                type="button"
+                onclick="selectIcon('${icon}')"
+                class="icon-option aspect-square flex items-center justify-center rounded-xl border-2 border-transparent hover:border-primary hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors p-3"
+                data-icon="${icon}"
+                title="${icon}"
+            >
+                <i data-lucide="${icon}" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+            </button>
+        `).join('');
+        lucide.createIcons();
+    }
+
+    function updateSelectedIcon(iconName) {
+        document.getElementById('category-icon').value = iconName;
+        document.getElementById('selected-icon-name').textContent = iconName;
+
+        // Update preview icon
+        const previewEl = document.getElementById('selected-icon-preview');
+        previewEl.setAttribute('data-lucide', iconName);
+        lucide.createIcons();
+
+        // Highlight selected icon in grid
+        document.querySelectorAll('.icon-option').forEach(btn => {
+            if (btn.dataset.icon === iconName) {
+                btn.classList.add('border-primary', 'bg-blue-50', 'dark:bg-blue-900/30');
+            } else {
+                btn.classList.remove('border-primary', 'bg-blue-50', 'dark:bg-blue-900/30');
+            }
+        });
+    }
+
+    function selectIcon(iconName) {
+        updateSelectedIcon(iconName);
+        closeIconPicker();
+    }
+
+    function openIconPicker() {
+        renderIconGrid();
+        const currentIcon = document.getElementById('category-icon').value;
+        updateSelectedIcon(currentIcon);
+        iconPickerModal.classList.remove('hidden');
+    }
+
+    function closeIconPicker() {
+        iconPickerModal.classList.add('hidden');
+    }
 
     function openAddModal() {
         form.action = '/budget/categories/add';
         modalTitle.textContent = 'Tilføj kategori';
         submitText.textContent = 'Tilføj';
         document.getElementById('category-name').value = '';
-        document.getElementById('category-icon').value = '';
+        updateSelectedIcon('folder');
         modal.classList.remove('hidden');
         lucide.createIcons();
     }
@@ -179,7 +274,7 @@
         modalTitle.textContent = 'Rediger kategori';
         submitText.textContent = 'Gem';
         document.getElementById('category-name').value = name;
-        document.getElementById('category-icon').value = icon;
+        updateSelectedIcon(icon);
         modal.classList.remove('hidden');
         lucide.createIcons();
     }
@@ -188,14 +283,23 @@
         modal.classList.add('hidden');
     }
 
-    // Close modal on backdrop click
+    // Close modals on backdrop click
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
     });
+    iconPickerModal.addEventListener('click', (e) => {
+        if (e.target === iconPickerModal) closeIconPicker();
+    });
 
-    // Close modal on escape
+    // Close modals on escape
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
+        if (e.key === 'Escape') {
+            if (!iconPickerModal.classList.contains('hidden')) {
+                closeIconPicker();
+            } else {
+                closeModal();
+            }
+        }
     });
 </script>
 {% endblock %}
