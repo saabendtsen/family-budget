@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir \
     uvicorn>=0.24.0 \
     jinja2>=3.1.0 \
     python-multipart>=0.0.6 \
-    python-dotenv>=1.0.0
+    python-dotenv>=1.0.0 \
+    httpx>=0.27.0
 
 # Copy application code
 COPY src/ ./src/
