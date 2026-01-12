@@ -76,29 +76,48 @@
     {% if expenses_by_category %}
     <div class="flex justify-between items-center mb-3">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Udgifter per kategori</h2>
-        <select
-            id="category-sort"
-            onchange="sortCategories(this.value)"
-            class="text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-primary outline-none cursor-pointer"
-        >
-            <option value="amount-desc">Højeste først</option>
-            <option value="amount-asc">Laveste først</option>
-            <option value="name-asc">A-Å</option>
-            <option value="name-desc">Å-A</option>
-        </select>
+        <div class="flex items-center gap-2">
+            <!-- Sort dropdown (from master) -->
+            <select
+                id="category-sort"
+                onchange="sortCategories(this.value)"
+                class="text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg border-0 focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+            >
+                <option value="amount-desc">Højeste først</option>
+                <option value="amount-asc">Laveste først</option>
+                <option value="name-asc">A-Å</option>
+                <option value="name-desc">Å-A</option>
+            </select>
+            <!-- Collapse toggle (from feature branch) -->
+            <button
+                id="toggle-all-btn"
+                onclick="toggleAllCategories()"
+                class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
+            >
+                <i data-lucide="chevrons-down" id="toggle-all-icon" class="w-4 h-4"></i>
+                <span id="toggle-all-text">Fold ind</span>
+            </button>
+        </div>
     </div>
     <div id="category-list" class="space-y-3">
         {% for category, expenses in expenses_by_category.items() %}
-        <div class="category-card bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700" data-category="{{ category }}" data-amount="{{ category_totals[category] }}">
-            <div class="flex justify-between items-center mb-2">
-                <div class="font-medium text-gray-900 dark:text-white">{{ category }}</div>
+        <div class="category-card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden" data-category="{{ category }}" data-amount="{{ category_totals[category] }}">
+            <!-- Category header (clickable for collapse) -->
+            <button
+                onclick="toggleCategory('{{ category|replace(' ', '-') }}')"
+                class="w-full px-4 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            >
+                <div class="flex items-center gap-2">
+                    <i data-lucide="chevron-down" id="chevron-{{ category|replace(' ', '-') }}" class="w-4 h-4 text-gray-400 transition-transform"></i>
+                    <span class="font-medium text-gray-900 dark:text-white">{{ category }}</span>
+                </div>
                 <div class="text-gray-600 dark:text-gray-300">
                     <span data-monthly="{{ category_totals[category] }}" data-yearly="{{ category_totals[category] * 12 }}">{{ format_currency(category_totals[category]) }}</span><span class="period-suffix">/md</span>
                 </div>
-            </div>
+            </button>
 
-            <!-- Individual expenses -->
-            <div class="space-y-2">
+            <!-- Individual expenses (collapsible) -->
+            <div id="cat-{{ category|replace(' ', '-') }}" class="border-t border-gray-100 dark:border-gray-700 px-4 py-2 space-y-2">
                 {% for expense in expenses %}
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600 dark:text-gray-400">{{ expense.name }}</span>
@@ -148,6 +167,7 @@
 
 {% block scripts %}
 <script>
+    // === Currency formatting ===
     function formatCurrency(amount) {
         return new Intl.NumberFormat('da-DK', {
             style: 'decimal',
@@ -156,6 +176,7 @@
         }).format(Math.round(amount)) + ' kr';
     }
 
+    // === Period toggle (monthly/yearly) ===
     function setPeriod(period) {
         const btnMonthly = document.getElementById('btn-monthly');
         const btnYearly = document.getElementById('btn-yearly');
@@ -191,6 +212,7 @@
         localStorage.setItem('budgetPeriod', period);
     }
 
+    // === Category sorting (from master) ===
     function sortCategories(sortBy) {
         const container = document.getElementById('category-list');
         if (!container) return;
@@ -224,7 +246,57 @@
         localStorage.setItem('categorySortOrder', sortBy);
     }
 
-    // Restore saved preferences on load
+    // === Category collapse/expand (from feature branch) ===
+    let allCollapsed = false;
+
+    function toggleCategory(categoryId) {
+        const content = document.getElementById('cat-' + categoryId);
+        const chevron = document.getElementById('chevron-' + categoryId);
+
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(-90deg)';
+        }
+        updateToggleAllButton();
+    }
+
+    function toggleAllCategories() {
+        const contents = document.querySelectorAll('[id^="cat-"]');
+        const chevrons = document.querySelectorAll('[id^="chevron-"]');
+
+        if (allCollapsed) {
+            contents.forEach(c => c.classList.remove('hidden'));
+            chevrons.forEach(c => c.style.transform = 'rotate(0deg)');
+        } else {
+            contents.forEach(c => c.classList.add('hidden'));
+            chevrons.forEach(c => c.style.transform = 'rotate(-90deg)');
+        }
+        allCollapsed = !allCollapsed;
+        updateToggleAllButton();
+    }
+
+    function updateToggleAllButton() {
+        const contents = document.querySelectorAll('[id^="cat-"]');
+        const hiddenCount = Array.from(contents).filter(c => c.classList.contains('hidden')).length;
+        const toggleText = document.getElementById('toggle-all-text');
+        const toggleIcon = document.getElementById('toggle-all-icon');
+
+        if (hiddenCount === contents.length) {
+            allCollapsed = true;
+            toggleText.textContent = 'Fold ud';
+            toggleIcon.setAttribute('data-lucide', 'chevrons-up');
+        } else {
+            allCollapsed = false;
+            toggleText.textContent = 'Fold ind';
+            toggleIcon.setAttribute('data-lucide', 'chevrons-down');
+        }
+        lucide.createIcons();
+    }
+
+    // === Restore saved preferences on load ===
     document.addEventListener('DOMContentLoaded', () => {
         // Restore period preference
         const savedPeriod = localStorage.getItem('budgetPeriod');
