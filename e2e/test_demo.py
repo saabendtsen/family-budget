@@ -52,11 +52,11 @@ class TestDemoDashboard:
 class TestDemoReadOnly:
     """Tests for demo mode read-only restrictions."""
 
-    def test_demo_hides_navigation(self, page: Page, base_url: str):
-        """Demo mode should hide bottom navigation."""
+    def test_demo_shows_navigation_for_exploration(self, page: Page, base_url: str):
+        """Demo mode shows navigation so users can explore the app."""
         page.goto(f"{base_url}/budget/demo")
         page.wait_for_url(f"{base_url}/budget/")
-        expect(page.locator("nav.fixed.bottom-0")).to_have_count(0)
+        expect(page.locator("nav.fixed.bottom-0")).to_be_visible()
 
     def test_demo_logout_clears_session(self, page: Page, base_url: str):
         """Logging out from demo should clear session."""
@@ -69,8 +69,8 @@ class TestDemoReadOnly:
 class TestDemoDataIntegrity:
     """Tests ensuring demo data is correct."""
 
-    def test_demo_income_total_is_50000(self, page: Page, base_url: str):
-        """Demo total income should be 50,000 kr."""
+    def test_demo_income_total_is_55000(self, page: Page, base_url: str):
+        """Demo total monthly income should be 55,000 kr (28K + 22K + 5K from semi-annual bonus)."""
         page.goto(f"{base_url}/budget/demo")
         page.wait_for_url(f"{base_url}/budget/")
-        expect(page.get_by_text("50.000")).to_be_visible()
+        expect(page.get_by_text("55.000")).to_be_visible()
