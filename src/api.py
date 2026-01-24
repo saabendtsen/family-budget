@@ -898,6 +898,115 @@ async def chart_data(request: Request):
 
 
 # =============================================================================
+# Settings
+# =============================================================================
+
+@app.get("/budget/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """Account settings page."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/", status_code=303)
+
+    user_id = get_user_id(request)
+    user = db.get_user_by_id(user_id)
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "username": user.username if user else "Ukendt",
+            "has_email": user.has_email() if user else False
+        }
+    )
+
+
+@app.post("/budget/settings/email")
+async def update_email(
+    request: Request,
+    email: str = Form(""),
+    email_pin: str = Form("")
+):
+    """Update user email with encryption.
+
+    Both email and PIN are required. The email will be encrypted with the PIN
+    and cannot be recovered without it.
+    """
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/", status_code=303)
+
+    user_id = get_user_id(request)
+    user = db.get_user_by_id(user_id)
+    email = email.strip() if email else None
+    email_pin = email_pin.strip() if email_pin else None
+
+    # If clearing email (both empty)
+    if not email and not email_pin:
+        db.update_user_email(user_id, None, None)
+        return templates.TemplateResponse(
+            "settings.html",
+            {
+                "request": request,
+                "username": user.username if user else "Ukendt",
+                "has_email": False,
+                "success": "Email fjernet"
+            }
+        )
+
+    # Validate email format
+    if email and "@" not in email:
+        return templates.TemplateResponse(
+            "settings.html",
+            {
+                "request": request,
+                "username": user.username if user else "Ukendt",
+                "has_email": user.has_email() if user else False,
+                "error": "Ugyldig email-adresse"
+            }
+        )
+
+    # If email provided, PIN is required
+    if email and not email_pin:
+        return templates.TemplateResponse(
+            "settings.html",
+            {
+                "request": request,
+                "username": user.username if user else "Ukendt",
+                "has_email": user.has_email() if user else False,
+                "error": "Du skal indtaste en 4-cifret kode for at beskytte din email"
+            }
+        )
+
+    # Validate PIN format (exactly 4 digits)
+    if email_pin and (len(email_pin) != 4 or not email_pin.isdigit()):
+        return templates.TemplateResponse(
+            "settings.html",
+            {
+                "request": request,
+                "username": user.username if user else "Ukendt",
+                "has_email": user.has_email() if user else False,
+                "error": "Koden skal være præcis 4 cifre"
+            }
+        )
+
+    # Encrypt and save email
+    db.update_user_email(user_id, email, email_pin)
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "username": user.username if user else "Ukendt",
+            "has_email": True,
+            "success": "Email opdateret og krypteret"
+        }
+    )
+
+
+# =============================================================================
 # Run with: python -m src.api
 # =============================================================================
 

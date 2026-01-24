@@ -35,6 +35,58 @@ def verify_password(password: str, stored_hash: str, salt: str) -> bool:
     new_hash, _ = hash_password(password, bytes.fromhex(salt))
     return secrets.compare_digest(new_hash, stored_hash)
 
+
+# =============================================================================
+# Email encryption (AES-256-GCM with PIN-derived key)
+# =============================================================================
+
+def _derive_email_key(pin: str, salt: bytes) -> bytes:
+    """Derive AES-256 key from PIN + salt using PBKDF2."""
+    return hashlib.pbkdf2_hmac('sha256', pin.encode(), salt, PBKDF2_ITERATIONS)
+
+
+def hash_email(email: str) -> str:
+    """Hash email for lookup (case-insensitive). Returns hex string."""
+    return hashlib.sha256(email.lower().strip().encode()).hexdigest()
+
+
+def encrypt_email(email: str, pin: str) -> tuple[str, str, str]:
+    """Encrypt email with PIN. Returns (encrypted_hex, salt_hex, email_hash)."""
+    email_lower = email.lower().strip()
+    salt = secrets.token_bytes(32)
+    key = _derive_email_key(pin, salt)
+
+    # AES-GCM encryption
+    aesgcm = AESGCM(key)
+    nonce = secrets.token_bytes(12)  # 96-bit nonce for GCM
+    ciphertext = aesgcm.encrypt(nonce, email_lower.encode(), None)
+
+    # Store nonce + ciphertext together
+    encrypted = nonce + ciphertext
+    email_hash = hash_email(email_lower)
+
+    return encrypted.hex(), salt.hex(), email_hash
+
+
+def decrypt_email(encrypted_hex: str, salt_hex: str, pin: str) -> Optional[str]:
+    """Decrypt email with PIN. Returns email or None if PIN is wrong."""
+    try:
+        encrypted = bytes.fromhex(encrypted_hex)
+        salt = bytes.fromhex(salt_hex)
+        key = _derive_email_key(pin, salt)
+
+        # Extract nonce and ciphertext
+        nonce = encrypted[:12]
+        ciphertext = encrypted[12:]
+
+        # AES-GCM decryption
+        aesgcm = AESGCM(key)
+        plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+        return plaintext.decode()
+    except Exception:
+        # Wrong PIN or corrupted data
+        return None
+
 # Pre-defined categories with icons
 DEFAULT_CATEGORIES = [
     ("Bolig", "house"),
@@ -50,10 +102,8 @@ DEFAULT_CATEGORIES = [
 
 # Demo data - typical Danish household budget
 DEMO_INCOME = [
-    # (person, amount, frequency)
-    ("Person 1", 28000, "monthly"),
-    ("Person 2", 22000, "monthly"),
-    ("Bonus", 30000, "semi-annual"),  # Example: semi-annual bonus
+    ("Person 1", 28000),
+    ("Person 2", 22000),
 ]
 
 DEMO_EXPENSES = [
@@ -62,19 +112,17 @@ DEMO_EXPENSES = [
     ("Ejendomsskat", "Bolig", 18000, "yearly"),
     ("Varme", "Forbrug", 800, "monthly"),
     ("El", "Forbrug", 600, "monthly"),
-    ("Vand", "Forbrug", 2400, "quarterly"),  # Example: quarterly water bill
+    ("Vand", "Forbrug", 400, "monthly"),
     ("Internet", "Forbrug", 299, "monthly"),
     ("Bil - lån", "Transport", 2500, "monthly"),
     ("Benzin", "Transport", 1500, "monthly"),
     ("Vægtafgift", "Transport", 3600, "yearly"),
     ("Bilforsikring", "Transport", 6000, "yearly"),
-    ("Bilservice", "Transport", 4500, "semi-annual"),  # Example: semi-annual service
     ("Institution", "Børn", 3200, "monthly"),
     ("Fritidsaktiviteter", "Børn", 400, "monthly"),
     ("Dagligvarer", "Mad", 6000, "monthly"),
     ("Indboforsikring", "Forsikring", 1800, "yearly"),
     ("Ulykkesforsikring", "Forsikring", 1200, "yearly"),
-    ("Tandlægeforsikring", "Forsikring", 600, "quarterly"),  # Example: quarterly dental
     ("Netflix", "Abonnementer", 129, "monthly"),
     ("Spotify", "Abonnementer", 99, "monthly"),
     ("Fitness", "Abonnementer", 299, "monthly"),
@@ -88,14 +136,7 @@ class Income:
     id: int
     user_id: int
     person: str
-    amount: float
-    frequency: str = 'monthly'  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
-
-    @property
-    def monthly_amount(self) -> float:
-        """Return the monthly equivalent amount."""
-        divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
-        return self.amount / divisors.get(self.frequency, 1)
+    amount_monthly: float
 
 
 @dataclass
@@ -105,13 +146,14 @@ class Expense:
     name: str
     category: str
     amount: float
-    frequency: str  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
+    frequency: str  # 'monthly' or 'yearly'
 
     @property
     def monthly_amount(self) -> float:
         """Return the monthly equivalent amount."""
-        divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
-        return self.amount / divisors.get(self.frequency, 1)
+        if self.frequency == "yearly":
+            return self.amount / 12
+        return self.amount
 
 
 @dataclass
@@ -127,6 +169,22 @@ class User:
     username: str
     password_hash: str
     salt: str
+    email_encrypted: str = None
+    email_salt: str = None
+    email_hash: str = None
+
+    def has_email(self) -> bool:
+        """Check if user has an encrypted email set."""
+        return bool(self.email_encrypted and self.email_salt)
+
+
+@dataclass
+class PasswordResetToken:
+    id: int
+    user_id: int
+    token_hash: str
+    expires_at: str
+    used: bool = False
 
 
 def get_connection() -> sqlite3.Connection:
@@ -153,8 +211,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             person TEXT NOT NULL,
-            amount REAL NOT NULL DEFAULT 0,
-            frequency TEXT NOT NULL DEFAULT 'monthly' CHECK(frequency IN ('monthly', 'quarterly', 'semi-annual', 'yearly')),
+            amount_monthly REAL NOT NULL DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id),
             UNIQUE(user_id, person)
         )
@@ -167,7 +224,7 @@ def init_db():
             name TEXT NOT NULL,
             category TEXT NOT NULL,
             amount REAL NOT NULL,
-            frequency TEXT NOT NULL CHECK(frequency IN ('monthly', 'quarterly', 'semi-annual', 'yearly')),
+            frequency TEXT NOT NULL CHECK(frequency IN ('monthly', 'yearly')),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
@@ -188,52 +245,38 @@ def init_db():
             password_hash TEXT NOT NULL,
             salt TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_login TIMESTAMP
+            email_encrypted TEXT,
+            email_salt TEXT,
+            email_hash TEXT
         )
     """)
 
-    # Migration: Add last_login column to existing databases
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Migration: Add encrypted email columns to existing databases
     cur.execute("PRAGMA table_info(users)")
     columns = [col[1] for col in cur.fetchall()]
-    if "last_login" not in columns:
-        cur.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
-
-    # Migration: Add frequency column to income table
-    cur.execute("PRAGMA table_info(income)")
-    income_columns = [col[1] for col in cur.fetchall()]
-    if "frequency" not in income_columns:
-        if "amount_monthly" in income_columns:
-            # Old schema: migrate from amount_monthly to amount + frequency
-            cur.execute("ALTER TABLE income ADD COLUMN amount REAL NOT NULL DEFAULT 0")
-            cur.execute("ALTER TABLE income ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'")
-            cur.execute("UPDATE income SET amount = amount_monthly")
-        else:
-            # Schema has amount but no frequency: just add frequency column
-            cur.execute("ALTER TABLE income ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'")
-
-    # Migration: Update expenses CHECK constraint to include quarterly and semi-annual
-    cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='expenses'")
-    expenses_schema = cur.fetchone()
-    if expenses_schema and 'quarterly' not in expenses_schema[0]:
-        # Old schema only allows 'monthly' and 'yearly' - need to recreate table
-        cur.execute("""
-            CREATE TABLE expenses_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                amount REAL NOT NULL,
-                frequency TEXT NOT NULL CHECK(frequency IN ('monthly', 'quarterly', 'semi-annual', 'yearly')),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        """)
-        cur.execute("""
-            INSERT INTO expenses_new (id, user_id, name, category, amount, frequency, created_at)
-            SELECT id, user_id, name, category, amount, frequency, created_at FROM expenses
-        """)
-        cur.execute("DROP TABLE expenses")
-        cur.execute("ALTER TABLE expenses_new RENAME TO expenses")
+    if "email_encrypted" not in columns:
+        cur.execute("ALTER TABLE users ADD COLUMN email_encrypted TEXT")
+    if "email_salt" not in columns:
+        cur.execute("ALTER TABLE users ADD COLUMN email_salt TEXT")
+    if "email_hash" not in columns:
+        cur.execute("ALTER TABLE users ADD COLUMN email_hash TEXT")
+    # Clean up old email column if it exists (from previous version)
+    if "email" in columns:
+        # SQLite doesn't support DROP COLUMN in older versions, so we leave it
+        # but stop using it. New code will not read/write this column.
+        pass
 
     # Insert default categories
     for name, icon in DEFAULT_CATEGORIES:
@@ -255,7 +298,7 @@ def get_all_income(user_id: int) -> list[Income]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, user_id, person, amount, frequency FROM income WHERE user_id = ? ORDER BY person",
+        "SELECT id, user_id, person, amount_monthly FROM income WHERE user_id = ? ORDER BY person",
         (user_id,)
     )
     rows = cur.fetchall()
@@ -263,13 +306,13 @@ def get_all_income(user_id: int) -> list[Income]:
     return [Income(**dict(row)) for row in rows]
 
 
-def add_income(user_id: int, person: str, amount: float, frequency: str = 'monthly') -> int:
+def add_income(user_id: int, person: str, amount: float) -> int:
     """Add income entry for a user. Returns the new income ID."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO income (user_id, person, amount, frequency) VALUES (?, ?, ?, ?)",
-        (user_id, person, amount, frequency)
+        "INSERT INTO income (user_id, person, amount_monthly) VALUES (?, ?, ?)",
+        (user_id, person, amount)
     )
     income_id = cur.lastrowid
     conn.commit()
@@ -277,7 +320,7 @@ def add_income(user_id: int, person: str, amount: float, frequency: str = 'month
     return income_id
 
 
-def update_income(user_id: int, person: str, amount: float, frequency: str = 'monthly'):
+def update_income(user_id: int, person: str, amount: float):
     """Update or insert income for a user.
 
     Uses INSERT ... ON CONFLICT for atomic upsert operation,
@@ -286,30 +329,23 @@ def update_income(user_id: int, person: str, amount: float, frequency: str = 'mo
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """INSERT INTO income (user_id, person, amount, frequency)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(user_id, person) DO UPDATE SET amount = excluded.amount, frequency = excluded.frequency""",
-        (user_id, person, amount, frequency)
+        """INSERT INTO income (user_id, person, amount_monthly)
+           VALUES (?, ?, ?)
+           ON CONFLICT(user_id, person) DO UPDATE SET amount_monthly = excluded.amount_monthly""",
+        (user_id, person, amount)
     )
     conn.commit()
     conn.close()
 
 
 def get_total_income(user_id: int) -> float:
-    """Get total monthly income for a user (converted to monthly equivalent)."""
+    """Get total monthly income for a user."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
-        SELECT COALESCE(SUM(
-            CASE
-                WHEN frequency = 'monthly' THEN amount
-                WHEN frequency = 'quarterly' THEN amount / 3
-                WHEN frequency = 'semi-annual' THEN amount / 6
-                WHEN frequency = 'yearly' THEN amount / 12
-                ELSE amount
-            END
-        ), 0) FROM income WHERE user_id = ?
-    """, (user_id,))
+    cur.execute(
+        "SELECT COALESCE(SUM(amount_monthly), 0) FROM income WHERE user_id = ?",
+        (user_id,)
+    )
     total = cur.fetchone()[0]
     conn.close()
     return total
@@ -352,7 +388,7 @@ def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
     )
     row = cur.fetchone()
     conn.close()
-    return Expense(**dict(row)) if row is not None else None
+    return Expense(**dict(row)) if row else None
 
 
 def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str) -> int:
@@ -394,15 +430,12 @@ def delete_expense(expense_id: int, user_id: int):
 
 
 def get_total_monthly_expenses(user_id: int) -> float:
-    """Get total monthly expenses for a user (converted to monthly equivalent)."""
+    """Get total monthly expenses for a user (yearly divided by 12)."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         SELECT COALESCE(SUM(
             CASE
-                WHEN frequency = 'monthly' THEN amount
-                WHEN frequency = 'quarterly' THEN amount / 3
-                WHEN frequency = 'semi-annual' THEN amount / 6
                 WHEN frequency = 'yearly' THEN amount / 12
                 ELSE amount
             END
@@ -520,14 +553,11 @@ def delete_category(category_id: int) -> bool:
         conn.close()
 
 
-def get_category_usage_count(category_name: str, user_id: int) -> int:
-    """Get number of expenses using a category for a specific user."""
+def get_category_usage_count(category_name: str) -> int:
+    """Get number of expenses using a category."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT COUNT(*) FROM expenses WHERE category = ? AND user_id = ?",
-        (category_name, user_id)
-    )
+    cur.execute("SELECT COUNT(*) FROM expenses WHERE category = ?", (category_name,))
     count = cur.fetchone()[0]
     conn.close()
     return count
@@ -537,8 +567,16 @@ def get_category_usage_count(category_name: str, user_id: int) -> int:
 # User operations
 # =============================================================================
 
-def create_user(username: str, password: str) -> Optional[int]:
+def create_user(
+    username: str,
+    password: str,
+    email: str = None,
+    email_pin: str = None
+) -> Optional[int]:
     """Create a new user. Returns user ID or None if username exists.
+
+    If email is provided, email_pin must also be provided. The email will be
+    encrypted with the PIN and cannot be recovered without it.
 
     Uses try/except for IntegrityError to handle race conditions where
     another process might insert the same username between check and insert.
@@ -546,13 +584,22 @@ def create_user(username: str, password: str) -> Optional[int]:
     conn = get_connection()
     cur = conn.cursor()
 
-    # Hash password and attempt to create user
-    # The UNIQUE constraint on username will raise IntegrityError if duplicate
+    # Hash password
     password_hash, salt = hash_password(password)
+
+    # Encrypt email if provided
+    email_encrypted = None
+    email_salt = None
+    email_hash_val = None
+    if email and email_pin:
+        email_encrypted, email_salt, email_hash_val = encrypt_email(email, email_pin)
+
     try:
         cur.execute(
-            "INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)",
-            (username, password_hash, salt)
+            """INSERT INTO users
+               (username, password_hash, salt, email_encrypted, email_salt, email_hash)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (username, password_hash, salt, email_encrypted, email_salt, email_hash_val)
         )
         user_id = cur.lastrowid
         conn.commit()
@@ -569,12 +616,90 @@ def get_user_by_username(username: str) -> Optional[User]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, username, password_hash, salt FROM users WHERE username = ?",
+        """SELECT id, username, password_hash, salt,
+                  email_encrypted, email_salt, email_hash
+           FROM users WHERE username = ?""",
         (username,)
     )
     row = cur.fetchone()
     conn.close()
     return User(**dict(row)) if row else None
+
+
+def get_user_by_email(email: str) -> Optional[User]:
+    """Get user by email hash (for lookup).
+
+    Note: The actual email is encrypted and requires PIN to decrypt.
+    This function finds the user by their email hash.
+    """
+    email_hash_val = hash_email(email)
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """SELECT id, username, password_hash, salt,
+                  email_encrypted, email_salt, email_hash
+           FROM users WHERE email_hash = ?""",
+        (email_hash_val,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return User(**dict(row)) if row else None
+
+
+def get_user_by_id(user_id: int) -> Optional[User]:
+    """Get user by ID."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """SELECT id, username, password_hash, salt,
+                  email_encrypted, email_salt, email_hash
+           FROM users WHERE id = ?""",
+        (user_id,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return User(**dict(row)) if row else None
+
+
+def update_user_email(user_id: int, email: str, email_pin: str):
+    """Update encrypted email for a user.
+
+    Both email and email_pin are required. The email will be encrypted
+    with the PIN and cannot be recovered without it.
+    """
+    if not email or not email_pin:
+        # Clear email if not provided
+        conn = get_connection()
+        conn.execute(
+            "UPDATE users SET email_encrypted = NULL, email_salt = NULL, email_hash = NULL WHERE id = ?",
+            (user_id,)
+        )
+        conn.commit()
+        conn.close()
+        return
+
+    email_encrypted, email_salt, email_hash_val = encrypt_email(email, email_pin)
+    conn = get_connection()
+    conn.execute(
+        """UPDATE users
+           SET email_encrypted = ?, email_salt = ?, email_hash = ?
+           WHERE id = ?""",
+        (email_encrypted, email_salt, email_hash_val, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def update_user_password(user_id: int, password: str):
+    """Update password for a user."""
+    password_hash, salt = hash_password(password)
+    conn = get_connection()
+    conn.execute(
+        "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?",
+        (password_hash, salt, user_id)
+    )
+    conn.commit()
+    conn.close()
 
 
 def authenticate_user(username: str, password: str) -> Optional[User]:
@@ -583,17 +708,6 @@ def authenticate_user(username: str, password: str) -> Optional[User]:
     if user and verify_password(password, user.password_hash, user.salt):
         return user
     return None
-
-
-def update_last_login(user_id: int):
-    """Update last_login timestamp for a user."""
-    conn = get_connection()
-    conn.execute(
-        "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
-        (user_id,)
-    )
-    conn.commit()
-    conn.close()
 
 
 def get_user_count() -> int:
@@ -607,18 +721,68 @@ def get_user_count() -> int:
 
 
 # =============================================================================
+# Password reset token operations
+# =============================================================================
+
+def create_password_reset_token(user_id: int, token_hash: str, expires_at: str) -> int:
+    """Create a password reset token. Returns token ID."""
+    conn = get_connection()
+    cur = conn.cursor()
+    # Invalidate any existing tokens for this user
+    cur.execute("UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?", (user_id,))
+    # Create new token
+    cur.execute(
+        """INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+           VALUES (?, ?, ?)""",
+        (user_id, token_hash, expires_at)
+    )
+    token_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return token_id
+
+
+def get_valid_reset_token(token_hash: str) -> Optional[PasswordResetToken]:
+    """Get a valid (unused, not expired) reset token."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """SELECT id, user_id, token_hash, expires_at, used
+           FROM password_reset_tokens
+           WHERE token_hash = ? AND used = 0 AND expires_at > datetime('now')""",
+        (token_hash,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    if row:
+        return PasswordResetToken(
+            id=row[0], user_id=row[1], token_hash=row[2],
+            expires_at=row[3], used=bool(row[4])
+        )
+    return None
+
+
+def mark_reset_token_used(token_id: int):
+    """Mark a reset token as used."""
+    conn = get_connection()
+    conn.execute("UPDATE password_reset_tokens SET used = 1 WHERE id = ?", (token_id,))
+    conn.commit()
+    conn.close()
+
+
+# =============================================================================
 # Demo data functions (returns in-memory data, not from database)
 # =============================================================================
 
 def get_demo_income() -> list[Income]:
     """Get demo income data."""
-    return [Income(id=i+1, user_id=0, person=person, amount=amount, frequency=freq)
-            for i, (person, amount, freq) in enumerate(DEMO_INCOME)]
+    return [Income(id=i+1, user_id=0, person=person, amount_monthly=amount)
+            for i, (person, amount) in enumerate(DEMO_INCOME)]
 
 
 def get_demo_total_income() -> float:
-    """Get total demo income (converted to monthly equivalent)."""
-    return sum(inc.monthly_amount for inc in get_demo_income())
+    """Get total demo income."""
+    return sum(amount for _, amount in DEMO_INCOME)
 
 
 def get_demo_expenses() -> list[Expense]:
