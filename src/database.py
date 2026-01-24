@@ -138,6 +138,11 @@ class Income:
     person: str
     amount_monthly: float
 
+    @property
+    def monthly_amount(self) -> float:
+        """Alias for amount_monthly for template compatibility."""
+        return self.amount_monthly
+
 
 @dataclass
 class Expense:
