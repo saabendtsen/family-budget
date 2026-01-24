@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 DB_PATH = Path(os.environ.get("BUDGET_DB_PATH", Path(__file__).parent.parent / "data" / "budget.db"))
 
 
