@@ -12,3 +12,5 @@ services:
       - TZ=Europe/Copenhagen
       - PYTHONUNBUFFERED=1
       - APP_VERSION=${APP_VERSION}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=saabendtsen/family-budget
