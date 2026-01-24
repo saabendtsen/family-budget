@@ -14,3 +14,7 @@ services:
       - APP_VERSION=${APP_VERSION}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO=saabendtsen/family-budget
+      # SMTP via host Postfix relay
+      - SMTP_HOST=172.17.0.1
+      - SMTP_PORT=25
+      - SMTP_FROM=noreply@wibholmsolutions.com
