@@ -463,3 +463,310 @@ class TestDemoData:
         names = {e.name for e in demo_expenses}
 
         assert "Real Expense" not in names
+
+
+class TestEmailEncryption:
+    """Tests for email encryption/decryption functions."""
+
+    def test_hash_email_returns_hex_string(self, db_module):
+        """hash_email should return a SHA-256 hex string."""
+        email_hash = db_module.hash_email("test@example.com")
+
+        assert email_hash is not None
+        assert len(email_hash) == 64  # SHA-256 hex = 64 chars
+        assert all(c in "0123456789abcdef" for c in email_hash)
+
+    def test_hash_email_is_case_insensitive(self, db_module):
+        """hash_email should produce same hash regardless of case."""
+        hash1 = db_module.hash_email("Test@Example.COM")
+        hash2 = db_module.hash_email("test@example.com")
+        hash3 = db_module.hash_email("TEST@EXAMPLE.COM")
+
+        assert hash1 == hash2 == hash3
+
+    def test_hash_email_strips_whitespace(self, db_module):
+        """hash_email should strip leading/trailing whitespace."""
+        hash1 = db_module.hash_email("test@example.com")
+        hash2 = db_module.hash_email("  test@example.com  ")
+        hash3 = db_module.hash_email("\ttest@example.com\n")
+
+        assert hash1 == hash2 == hash3
+
+    def test_hash_email_different_emails_produce_different_hashes(self, db_module):
+        """Different emails should produce different hashes."""
+        hash1 = db_module.hash_email("user1@example.com")
+        hash2 = db_module.hash_email("user2@example.com")
+
+        assert hash1 != hash2
+
+    def test_encrypt_email_returns_three_values(self, db_module):
+        """encrypt_email should return (encrypted_hex, salt_hex, email_hash)."""
+        encrypted, salt, email_hash = db_module.encrypt_email("test@example.com", "1234")
+
+        assert encrypted is not None
+        assert salt is not None
+        assert email_hash is not None
+        assert len(salt) == 64  # 32 bytes as hex = 64 chars
+        assert len(email_hash) == 64  # SHA-256 hex
+
+    def test_encrypt_email_produces_different_output_each_time(self, db_module):
+        """encrypt_email should use random salt, producing different ciphertext."""
+        encrypted1, salt1, _ = db_module.encrypt_email("test@example.com", "1234")
+        encrypted2, salt2, _ = db_module.encrypt_email("test@example.com", "1234")
+
+        # Different salts mean different ciphertexts
+        assert salt1 != salt2
+        assert encrypted1 != encrypted2
+
+    def test_encrypt_email_same_hash_for_same_email(self, db_module):
+        """encrypt_email should produce same email_hash for same email."""
+        _, _, hash1 = db_module.encrypt_email("test@example.com", "1234")
+        _, _, hash2 = db_module.encrypt_email("test@example.com", "5678")
+
+        assert hash1 == hash2
+
+    def test_decrypt_email_with_correct_pin(self, db_module):
+        """decrypt_email should return original email with correct PIN."""
+        original = "test@example.com"
+        encrypted, salt, _ = db_module.encrypt_email(original, "1234")
+
+        decrypted = db_module.decrypt_email(encrypted, salt, "1234")
+
+        assert decrypted == original.lower()  # Email is normalized to lowercase
+
+    def test_decrypt_email_with_wrong_pin_returns_none(self, db_module):
+        """decrypt_email should return None with wrong PIN."""
+        encrypted, salt, _ = db_module.encrypt_email("test@example.com", "1234")
+
+        decrypted = db_module.decrypt_email(encrypted, salt, "9999")
+
+        assert decrypted is None
+
+    def test_decrypt_email_with_corrupted_data_returns_none(self, db_module):
+        """decrypt_email should return None with corrupted data."""
+        encrypted, salt, _ = db_module.encrypt_email("test@example.com", "1234")
+
+        # Corrupt the encrypted data
+        corrupted = "00" + encrypted[2:]
+        decrypted = db_module.decrypt_email(corrupted, salt, "1234")
+
+        assert decrypted is None
+
+    def test_encrypt_decrypt_preserves_special_characters(self, db_module):
+        """encrypt/decrypt should handle emails with special characters."""
+        original = "user+tag@sub.example.com"
+        encrypted, salt, _ = db_module.encrypt_email(original, "1234")
+
+        decrypted = db_module.decrypt_email(encrypted, salt, "1234")
+
+        assert decrypted == original.lower()
+
+
+class TestUserEmailOperations:
+    """Tests for user email update and lookup operations."""
+
+    def test_update_user_email_stores_encrypted_email(self, db_module):
+        """update_user_email should store encrypted email for user."""
+        user_id = db_module.create_user("emailuser1", "testpass")
+
+        db_module.update_user_email(user_id, "user@example.com", "1234")
+
+        user = db_module.get_user_by_id(user_id)
+        assert user.email_encrypted is not None
+        assert user.email_salt is not None
+        assert user.email_hash is not None
+
+    def test_update_user_email_clears_email_when_empty(self, db_module):
+        """update_user_email should clear email when passed empty values."""
+        user_id = db_module.create_user("emailuser2", "testpass")
+        db_module.update_user_email(user_id, "user@example.com", "1234")
+
+        # Clear email
+        db_module.update_user_email(user_id, None, None)
+
+        user = db_module.get_user_by_id(user_id)
+        assert user.email_encrypted is None
+        assert user.email_salt is None
+        assert user.email_hash is None
+
+    def test_update_user_email_clears_when_only_email_empty(self, db_module):
+        """update_user_email should clear when email is empty (even with PIN)."""
+        user_id = db_module.create_user("emailuser3", "testpass")
+        db_module.update_user_email(user_id, "user@example.com", "1234")
+
+        # Clear email (no email, but PIN provided)
+        db_module.update_user_email(user_id, "", "1234")
+
+        user = db_module.get_user_by_id(user_id)
+        assert user.email_encrypted is None
+
+    def test_get_user_by_email_returns_user(self, db_module):
+        """get_user_by_email should return user with matching email."""
+        user_id = db_module.create_user("emailuser4", "testpass")
+        db_module.update_user_email(user_id, "findme@example.com", "1234")
+
+        found_user = db_module.get_user_by_email("findme@example.com")
+
+        assert found_user is not None
+        assert found_user.id == user_id
+        assert found_user.username == "emailuser4"
+
+    def test_get_user_by_email_is_case_insensitive(self, db_module):
+        """get_user_by_email should find user regardless of email case."""
+        user_id = db_module.create_user("emailuser5", "testpass")
+        db_module.update_user_email(user_id, "CaseSensitive@Example.COM", "1234")
+
+        # Should find with different case
+        found_user = db_module.get_user_by_email("casesensitive@example.com")
+
+        assert found_user is not None
+        assert found_user.id == user_id
+
+    def test_get_user_by_email_strips_whitespace(self, db_module):
+        """get_user_by_email should find user even with whitespace in query."""
+        user_id = db_module.create_user("emailuser6", "testpass")
+        db_module.update_user_email(user_id, "test@example.com", "1234")
+
+        # Should find with whitespace
+        found_user = db_module.get_user_by_email("  test@example.com  ")
+
+        assert found_user is not None
+        assert found_user.id == user_id
+
+    def test_get_user_by_email_returns_none_for_nonexistent(self, db_module):
+        """get_user_by_email should return None for unknown email."""
+        found_user = db_module.get_user_by_email("nobody@example.com")
+
+        assert found_user is None
+
+    def test_get_user_by_email_returns_none_for_user_without_email(self, db_module):
+        """get_user_by_email should not find users without email set."""
+        db_module.create_user("noemailuser", "testpass")
+
+        found_user = db_module.get_user_by_email("noemailuser@example.com")
+
+        assert found_user is None
+
+    def test_user_has_email_returns_true_when_set(self, db_module):
+        """User.has_email() should return True when email is set."""
+        user_id = db_module.create_user("hasemailuser", "testpass")
+        db_module.update_user_email(user_id, "has@example.com", "1234")
+
+        user = db_module.get_user_by_id(user_id)
+
+        assert user.has_email() is True
+
+    def test_user_has_email_returns_false_when_not_set(self, db_module):
+        """User.has_email() should return False when email is not set."""
+        user_id = db_module.create_user("noemailuser2", "testpass")
+
+        user = db_module.get_user_by_id(user_id)
+
+        assert user.has_email() is False
+
+
+class TestPasswordResetTokens:
+    """Tests for password reset token operations."""
+
+    def test_create_password_reset_token_returns_id(self, db_module):
+        """create_password_reset_token should return a token ID."""
+        user_id = db_module.create_user("resetuser1", "testpass")
+        token_hash = "abc123hash"
+        expires_at = "2099-12-31 23:59:59"
+
+        token_id = db_module.create_password_reset_token(user_id, token_hash, expires_at)
+
+        assert token_id is not None
+        assert isinstance(token_id, int)
+
+    def test_create_password_reset_token_invalidates_old_tokens(self, db_module):
+        """create_password_reset_token should invalidate previous tokens."""
+        user_id = db_module.create_user("resetuser2", "testpass")
+        expires_at = "2099-12-31 23:59:59"
+
+        # Create first token
+        db_module.create_password_reset_token(user_id, "firsthash", expires_at)
+
+        # Create second token (should invalidate first)
+        db_module.create_password_reset_token(user_id, "secondhash", expires_at)
+
+        # First token should now be invalid (used=1)
+        first_token = db_module.get_valid_reset_token("firsthash")
+        second_token = db_module.get_valid_reset_token("secondhash")
+
+        assert first_token is None  # Invalidated
+        assert second_token is not None  # Still valid
+
+    def test_get_valid_reset_token_returns_token(self, db_module):
+        """get_valid_reset_token should return valid token."""
+        user_id = db_module.create_user("resetuser3", "testpass")
+        token_hash = "validhash123"
+        expires_at = "2099-12-31 23:59:59"
+
+        db_module.create_password_reset_token(user_id, token_hash, expires_at)
+        token = db_module.get_valid_reset_token(token_hash)
+
+        assert token is not None
+        assert token.user_id == user_id
+        assert token.token_hash == token_hash
+        assert token.used is False
+
+    def test_get_valid_reset_token_returns_none_for_unknown(self, db_module):
+        """get_valid_reset_token should return None for unknown hash."""
+        token = db_module.get_valid_reset_token("unknownhash")
+
+        assert token is None
+
+    def test_get_valid_reset_token_returns_none_for_expired(self, db_module):
+        """get_valid_reset_token should return None for expired token."""
+        user_id = db_module.create_user("resetuser4", "testpass")
+        token_hash = "expiredhash"
+        expires_at = "2000-01-01 00:00:00"  # Already expired
+
+        db_module.create_password_reset_token(user_id, token_hash, expires_at)
+        token = db_module.get_valid_reset_token(token_hash)
+
+        assert token is None
+
+    def test_get_valid_reset_token_returns_none_for_used(self, db_module):
+        """get_valid_reset_token should return None for used token."""
+        user_id = db_module.create_user("resetuser5", "testpass")
+        token_hash = "usedhash"
+        expires_at = "2099-12-31 23:59:59"
+
+        token_id = db_module.create_password_reset_token(user_id, token_hash, expires_at)
+        db_module.mark_reset_token_used(token_id)
+
+        token = db_module.get_valid_reset_token(token_hash)
+
+        assert token is None
+
+    def test_mark_reset_token_used(self, db_module):
+        """mark_reset_token_used should mark token as used."""
+        user_id = db_module.create_user("resetuser6", "testpass")
+        token_hash = "markusedhash"
+        expires_at = "2099-12-31 23:59:59"
+
+        token_id = db_module.create_password_reset_token(user_id, token_hash, expires_at)
+
+        # Token should be valid before marking
+        assert db_module.get_valid_reset_token(token_hash) is not None
+
+        db_module.mark_reset_token_used(token_id)
+
+        # Token should be invalid after marking
+        assert db_module.get_valid_reset_token(token_hash) is None
+
+    def test_update_user_password(self, db_module):
+        """update_user_password should change user's password."""
+        user_id = db_module.create_user("resetuser7", "oldpassword")
+
+        # Verify old password works
+        assert db_module.authenticate_user("resetuser7", "oldpassword") is not None
+
+        # Update password
+        db_module.update_user_password(user_id, "newpassword")
+
+        # Old password should fail, new should work
+        assert db_module.authenticate_user("resetuser7", "oldpassword") is None
+        assert db_module.authenticate_user("resetuser7", "newpassword") is not None
