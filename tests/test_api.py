@@ -154,6 +154,149 @@ class TestAuthentication:
         assert response.cookies.get("budget_session") == "demo"
 
 
+class TestPasswordReset:
+    """Tests for password reset endpoints."""
+
+    def test_forgot_password_page_accessible(self, client):
+        """Forgot password page should be accessible without auth."""
+        response = client.get("/budget/forgot-password")
+
+        assert response.status_code == 200
+        assert "Glemt adgangskode" in response.text
+
+    def test_forgot_password_shows_success_for_any_email(self, client):
+        """Forgot password should show success even for unknown email (prevent enumeration)."""
+        response = client.post(
+            "/budget/forgot-password",
+            data={"email": "unknown@example.com"}
+        )
+
+        assert response.status_code == 200
+        assert "sendt et link" in response.text
+
+    def test_forgot_password_creates_token_for_valid_user(self, client, db_module):
+        """Forgot password should create token for user with email."""
+        user_id = db_module.create_user("resetuser1", "oldpass")
+        db_module.update_user_email(user_id, "reset@example.com", "1234")
+
+        response = client.post(
+            "/budget/forgot-password",
+            data={"email": "reset@example.com"}
+        )
+
+        assert response.status_code == 200
+        # Token should be created (we can't easily check this without mocking email)
+
+    def test_reset_password_invalid_token(self, client):
+        """Reset password with invalid token should show error."""
+        response = client.get("/budget/reset-password/invalidtoken123")
+
+        assert response.status_code == 200
+        assert "ugyldigt" in response.text.lower() or "udløbet" in response.text.lower()
+
+    def test_reset_password_valid_token_shows_form(self, client, db_module):
+        """Reset password with valid token should show password form."""
+        import hashlib
+        from datetime import datetime, timedelta
+
+        user_id = db_module.create_user("resetuser2", "oldpass")
+        token = "validtoken123"
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        db_module.create_password_reset_token(user_id, token_hash, expires_at)
+
+        response = client.get(f"/budget/reset-password/{token}")
+
+        assert response.status_code == 200
+        assert "Ny adgangskode" in response.text
+
+    def test_reset_password_changes_password(self, client, db_module):
+        """Reset password should update user's password."""
+        import hashlib
+        from datetime import datetime, timedelta
+
+        user_id = db_module.create_user("resetuser3", "oldpassword")
+        token = "changetoken123"
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        db_module.create_password_reset_token(user_id, token_hash, expires_at)
+
+        response = client.post(
+            f"/budget/reset-password/{token}",
+            data={"password": "newpassword", "password_confirm": "newpassword"}
+        )
+
+        assert response.status_code == 200
+        assert "nulstillet" in response.text.lower()
+
+        # Verify old password no longer works, new does
+        assert db_module.authenticate_user("resetuser3", "oldpassword") is None
+        assert db_module.authenticate_user("resetuser3", "newpassword") is not None
+
+    def test_reset_password_validates_password_length(self, client, db_module):
+        """Reset password should require minimum password length."""
+        import hashlib
+        from datetime import datetime, timedelta
+
+        user_id = db_module.create_user("resetuser4", "oldpass")
+        token = "shorttoken123"
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        db_module.create_password_reset_token(user_id, token_hash, expires_at)
+
+        response = client.post(
+            f"/budget/reset-password/{token}",
+            data={"password": "short", "password_confirm": "short"}
+        )
+
+        assert response.status_code == 200
+        assert "mindst 6" in response.text
+
+    def test_reset_password_validates_password_match(self, client, db_module):
+        """Reset password should require passwords to match."""
+        import hashlib
+        from datetime import datetime, timedelta
+
+        user_id = db_module.create_user("resetuser5", "oldpass")
+        token = "matchtoken123"
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        db_module.create_password_reset_token(user_id, token_hash, expires_at)
+
+        response = client.post(
+            f"/budget/reset-password/{token}",
+            data={"password": "password1", "password_confirm": "password2"}
+        )
+
+        assert response.status_code == 200
+        assert "matcher ikke" in response.text
+
+    def test_reset_password_token_single_use(self, client, db_module):
+        """Reset password token should only work once."""
+        import hashlib
+        from datetime import datetime, timedelta
+
+        user_id = db_module.create_user("resetuser6", "oldpass")
+        token = "singleusetoken"
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+        db_module.create_password_reset_token(user_id, token_hash, expires_at)
+
+        # First use should work
+        response1 = client.post(
+            f"/budget/reset-password/{token}",
+            data={"password": "newpass1", "password_confirm": "newpass1"}
+        )
+        assert "nulstillet" in response1.text.lower()
+
+        # Second use should fail
+        response2 = client.post(
+            f"/budget/reset-password/{token}",
+            data={"password": "newpass2", "password_confirm": "newpass2"}
+        )
+        assert "ugyldigt" in response2.text.lower() or "udløbet" in response2.text.lower()
+
+
 class TestProtectedEndpoints:
     """Tests for endpoint authentication requirements."""
 
