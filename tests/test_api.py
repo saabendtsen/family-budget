@@ -177,7 +177,7 @@ class TestPasswordReset:
     def test_forgot_password_creates_token_for_valid_user(self, client, db_module):
         """Forgot password should create token for user with email."""
         user_id = db_module.create_user("resetuser1", "oldpass")
-        db_module.update_user_email(user_id, "reset@example.com", "1234")
+        db_module.update_user_email(user_id, "reset@example.com")
 
         response = client.post(
             "/budget/forgot-password",
