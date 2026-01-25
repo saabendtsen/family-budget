@@ -689,6 +689,19 @@ async def privacy_page(request: Request):
 
 
 # =============================================================================
+# Info Pages
+# =============================================================================
+
+@app.get("/budget/info/datatab-januar-2025", response_class=HTMLResponse)
+async def info_datatab_januar_2025(request: Request):
+    """Info page about data loss incident (9. januar 2025)."""
+    return templates.TemplateResponse(
+        "info-datatab-januar-2025.html",
+        {"request": request, "show_nav": False}
+    )
+
+
+# =============================================================================
 # Feedback
 # =============================================================================
 

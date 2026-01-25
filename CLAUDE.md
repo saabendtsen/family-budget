@@ -58,21 +58,25 @@ Data er hardcoded i `database.py` og er read-only.
 - **Release-please:** Opretter automatisk release PRs baseret på conventional commits
 - **Auto-merge:** Release PRs merges automatisk når CI er grøn
 
-### Auto-Deploy (Server-side)
-Systemd timer tjekker hvert minut for nye commits og deployer automatisk:
+### Auto-Deploy (MIDLERTIDIGT DEAKTIVERET)
 
+⚠️ **Auto-deploy er deaktiveret** fordi der ofte arbejdes på feature branches direkte på serveren.
+Timeren overskrev lokale ændringer ved at pulle fra master.
+
+**Manuel deploy fra serveren:**
 ```bash
-# Status
-systemctl --user status family-budget-deploy.timer
+# Rebuild og genstart
+cd ~/projects/family-budget
+docker compose up -d --build
 
-# Logs
-journalctl --user -u family-budget-deploy -f
-
-# Manuel deploy
-~/projects/family-budget/scripts/deploy.sh
+# Eller brug deploy scriptet (puller IKKE fra git)
+# ~/projects/family-budget/scripts/deploy.sh
 ```
 
-**Flow:** Push til master → Release-please PR → Auto-merge → Timer opdager → Git pull → Docker rebuild → Health check
+**Genaktiver auto-deploy når feature branches er merget:**
+```bash
+systemctl --user enable --now family-budget-deploy.timer
+```
 
 ### Filer
 - `.github/workflows/ci.yml` - Test workflow
