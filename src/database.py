@@ -8,8 +8,6 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
 DB_PATH = Path(os.environ.get("BUDGET_DB_PATH", Path(__file__).parent.parent / "data" / "budget.db"))
 
 
@@ -37,55 +35,16 @@ def verify_password(password: str, stored_hash: str, salt: str) -> bool:
 
 
 # =============================================================================
-# Email encryption (AES-256-GCM with PIN-derived key)
+# Email hashing (SHA-256 for anonymous lookup)
 # =============================================================================
 
-def _derive_email_key(pin: str, salt: bytes) -> bytes:
-    """Derive AES-256 key from PIN + salt using PBKDF2."""
-    return hashlib.pbkdf2_hmac('sha256', pin.encode(), salt, PBKDF2_ITERATIONS)
-
-
 def hash_email(email: str) -> str:
-    """Hash email for lookup (case-insensitive). Returns hex string."""
+    """Hash email for lookup (case-insensitive). Returns hex string.
+
+    The email is hashed with SHA-256 for privacy-preserving lookup.
+    The actual email is never stored - only the hash is kept for verification.
+    """
     return hashlib.sha256(email.lower().strip().encode()).hexdigest()
-
-
-def encrypt_email(email: str, pin: str) -> tuple[str, str, str]:
-    """Encrypt email with PIN. Returns (encrypted_hex, salt_hex, email_hash)."""
-    email_lower = email.lower().strip()
-    salt = secrets.token_bytes(32)
-    key = _derive_email_key(pin, salt)
-
-    # AES-GCM encryption
-    aesgcm = AESGCM(key)
-    nonce = secrets.token_bytes(12)  # 96-bit nonce for GCM
-    ciphertext = aesgcm.encrypt(nonce, email_lower.encode(), None)
-
-    # Store nonce + ciphertext together
-    encrypted = nonce + ciphertext
-    email_hash = hash_email(email_lower)
-
-    return encrypted.hex(), salt.hex(), email_hash
-
-
-def decrypt_email(encrypted_hex: str, salt_hex: str, pin: str) -> Optional[str]:
-    """Decrypt email with PIN. Returns email or None if PIN is wrong."""
-    try:
-        encrypted = bytes.fromhex(encrypted_hex)
-        salt = bytes.fromhex(salt_hex)
-        key = _derive_email_key(pin, salt)
-
-        # Extract nonce and ciphertext
-        nonce = encrypted[:12]
-        ciphertext = encrypted[12:]
-
-        # AES-GCM decryption
-        aesgcm = AESGCM(key)
-        plaintext = aesgcm.decrypt(nonce, ciphertext, None)
-        return plaintext.decode()
-    except Exception:
-        # Wrong PIN or corrupted data
-        return None
 
 
 # Pre-defined categories with icons
@@ -180,13 +139,11 @@ class User:
     username: str
     password_hash: str
     salt: str
-    email_encrypted: str = None
-    email_salt: str = None
     email_hash: str = None
 
     def has_email(self) -> bool:
-        """Check if user has an encrypted email set."""
-        return bool(self.email_encrypted and self.email_salt)
+        """Check if user has an email hash set (for password reset)."""
+        return bool(self.email_hash)
 
 
 @dataclass
@@ -258,8 +215,6 @@ def init_db():
             salt TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_login TIMESTAMP,
-            email_encrypted TEXT,
-            email_salt TEXT,
             email_hash TEXT
         )
     """)
@@ -281,12 +236,21 @@ def init_db():
     columns = [col[1] for col in cur.fetchall()]
     if "last_login" not in columns:
         cur.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
-    if "email_encrypted" not in columns:
-        cur.execute("ALTER TABLE users ADD COLUMN email_encrypted TEXT")
-    if "email_salt" not in columns:
-        cur.execute("ALTER TABLE users ADD COLUMN email_salt TEXT")
     if "email_hash" not in columns:
         cur.execute("ALTER TABLE users ADD COLUMN email_hash TEXT")
+
+    # Migration: Remove email_encrypted and email_salt columns (no longer used)
+    # SQLite 3.35.0+ supports DROP COLUMN
+    if "email_encrypted" in columns:
+        try:
+            cur.execute("ALTER TABLE users DROP COLUMN email_encrypted")
+        except sqlite3.OperationalError:
+            pass  # Older SQLite, column will just be ignored
+    if "email_salt" in columns:
+        try:
+            cur.execute("ALTER TABLE users DROP COLUMN email_salt")
+        except sqlite3.OperationalError:
+            pass  # Older SQLite, column will just be ignored
 
     # Migration: Add frequency column to income table
     cur.execute("PRAGMA table_info(income)")
@@ -630,13 +594,12 @@ def get_category_usage_count(category_name: str, user_id: int) -> int:
 def create_user(
     username: str,
     password: str,
-    email: str = None,
-    email_pin: str = None
+    email: str = None
 ) -> Optional[int]:
     """Create a new user. Returns user ID or None if username exists.
 
-    If email is provided, email_pin must also be provided. The email will be
-    encrypted with the PIN and cannot be recovered without it.
+    If email is provided, only its hash is stored for password reset lookup.
+    The actual email is never stored.
 
     Uses try/except for IntegrityError to handle race conditions where
     another process might insert the same username between check and insert.
@@ -647,19 +610,15 @@ def create_user(
     # Hash password
     password_hash, salt = hash_password(password)
 
-    # Encrypt email if provided
-    email_encrypted = None
-    email_salt = None
-    email_hash_val = None
-    if email and email_pin:
-        email_encrypted, email_salt, email_hash_val = encrypt_email(email, email_pin)
+    # Hash email if provided (only hash is stored, not the email itself)
+    email_hash_val = hash_email(email) if email else None
 
     try:
         cur.execute(
             """INSERT INTO users
-               (username, password_hash, salt, email_encrypted, email_salt, email_hash)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (username, password_hash, salt, email_encrypted, email_salt, email_hash_val)
+               (username, password_hash, salt, email_hash)
+               VALUES (?, ?, ?, ?)""",
+            (username, password_hash, salt, email_hash_val)
         )
         user_id = cur.lastrowid
         conn.commit()
@@ -676,8 +635,7 @@ def get_user_by_username(username: str) -> Optional[User]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """SELECT id, username, password_hash, salt,
-                  email_encrypted, email_salt, email_hash
+        """SELECT id, username, password_hash, salt, email_hash
            FROM users WHERE username = ?""",
         (username,)
     )
@@ -687,17 +645,16 @@ def get_user_by_username(username: str) -> Optional[User]:
 
 
 def get_user_by_email(email: str) -> Optional[User]:
-    """Get user by email hash (for lookup).
+    """Get user by email hash (for password reset lookup).
 
-    Note: The actual email is encrypted and requires PIN to decrypt.
-    This function finds the user by their email hash.
+    This function finds the user by their email hash. The actual email
+    is never stored - only the hash is kept for verification.
     """
     email_hash_val = hash_email(email)
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """SELECT id, username, password_hash, salt,
-                  email_encrypted, email_salt, email_hash
+        """SELECT id, username, password_hash, salt, email_hash
            FROM users WHERE email_hash = ?""",
         (email_hash_val,)
     )
@@ -711,8 +668,7 @@ def get_user_by_id(user_id: int) -> Optional[User]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """SELECT id, username, password_hash, salt,
-                  email_encrypted, email_salt, email_hash
+        """SELECT id, username, password_hash, salt, email_hash
            FROM users WHERE id = ?""",
         (user_id,)
     )
@@ -721,31 +677,25 @@ def get_user_by_id(user_id: int) -> Optional[User]:
     return User(**dict(row)) if row else None
 
 
-def update_user_email(user_id: int, email: str, email_pin: str):
-    """Update encrypted email for a user.
+def update_user_email(user_id: int, email: str):
+    """Update email hash for a user.
 
-    Both email and email_pin are required. The email will be encrypted
-    with the PIN and cannot be recovered without it.
+    Only the email hash is stored for password reset verification.
+    The actual email is never stored.
     """
-    if not email or not email_pin:
-        # Clear email if not provided
-        conn = get_connection()
+    conn = get_connection()
+    if not email:
+        # Clear email hash if not provided
         conn.execute(
-            "UPDATE users SET email_encrypted = NULL, email_salt = NULL, email_hash = NULL WHERE id = ?",
+            "UPDATE users SET email_hash = NULL WHERE id = ?",
             (user_id,)
         )
-        conn.commit()
-        conn.close()
-        return
-
-    email_encrypted, email_salt, email_hash_val = encrypt_email(email, email_pin)
-    conn = get_connection()
-    conn.execute(
-        """UPDATE users
-           SET email_encrypted = ?, email_salt = ?, email_hash = ?
-           WHERE id = ?""",
-        (email_encrypted, email_salt, email_hash_val, user_id)
-    )
+    else:
+        email_hash_val = hash_email(email)
+        conn.execute(
+            "UPDATE users SET email_hash = ? WHERE id = ?",
+            (email_hash_val, user_id)
+        )
     conn.commit()
     conn.close()
 

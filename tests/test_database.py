@@ -465,8 +465,8 @@ class TestDemoData:
         assert "Real Expense" not in names
 
 
-class TestEmailEncryption:
-    """Tests for email encryption/decryption functions."""
+class TestEmailHashing:
+    """Tests for email hashing function."""
 
     def test_hash_email_returns_hex_string(self, db_module):
         """hash_email should return a SHA-256 hex string."""
@@ -499,111 +499,45 @@ class TestEmailEncryption:
 
         assert hash1 != hash2
 
-    def test_encrypt_email_returns_three_values(self, db_module):
-        """encrypt_email should return (encrypted_hex, salt_hex, email_hash)."""
-        encrypted, salt, email_hash = db_module.encrypt_email("test@example.com", "1234")
-
-        assert encrypted is not None
-        assert salt is not None
-        assert email_hash is not None
-        assert len(salt) == 64  # 32 bytes as hex = 64 chars
-        assert len(email_hash) == 64  # SHA-256 hex
-
-    def test_encrypt_email_produces_different_output_each_time(self, db_module):
-        """encrypt_email should use random salt, producing different ciphertext."""
-        encrypted1, salt1, _ = db_module.encrypt_email("test@example.com", "1234")
-        encrypted2, salt2, _ = db_module.encrypt_email("test@example.com", "1234")
-
-        # Different salts mean different ciphertexts
-        assert salt1 != salt2
-        assert encrypted1 != encrypted2
-
-    def test_encrypt_email_same_hash_for_same_email(self, db_module):
-        """encrypt_email should produce same email_hash for same email."""
-        _, _, hash1 = db_module.encrypt_email("test@example.com", "1234")
-        _, _, hash2 = db_module.encrypt_email("test@example.com", "5678")
-
-        assert hash1 == hash2
-
-    def test_decrypt_email_with_correct_pin(self, db_module):
-        """decrypt_email should return original email with correct PIN."""
-        original = "test@example.com"
-        encrypted, salt, _ = db_module.encrypt_email(original, "1234")
-
-        decrypted = db_module.decrypt_email(encrypted, salt, "1234")
-
-        assert decrypted == original.lower()  # Email is normalized to lowercase
-
-    def test_decrypt_email_with_wrong_pin_returns_none(self, db_module):
-        """decrypt_email should return None with wrong PIN."""
-        encrypted, salt, _ = db_module.encrypt_email("test@example.com", "1234")
-
-        decrypted = db_module.decrypt_email(encrypted, salt, "9999")
-
-        assert decrypted is None
-
-    def test_decrypt_email_with_corrupted_data_returns_none(self, db_module):
-        """decrypt_email should return None with corrupted data."""
-        encrypted, salt, _ = db_module.encrypt_email("test@example.com", "1234")
-
-        # Corrupt the encrypted data
-        corrupted = "00" + encrypted[2:]
-        decrypted = db_module.decrypt_email(corrupted, salt, "1234")
-
-        assert decrypted is None
-
-    def test_encrypt_decrypt_preserves_special_characters(self, db_module):
-        """encrypt/decrypt should handle emails with special characters."""
-        original = "user+tag@sub.example.com"
-        encrypted, salt, _ = db_module.encrypt_email(original, "1234")
-
-        decrypted = db_module.decrypt_email(encrypted, salt, "1234")
-
-        assert decrypted == original.lower()
-
 
 class TestUserEmailOperations:
     """Tests for user email update and lookup operations."""
 
-    def test_update_user_email_stores_encrypted_email(self, db_module):
-        """update_user_email should store encrypted email for user."""
+    def test_update_user_email_stores_hash(self, db_module):
+        """update_user_email should store email hash for user."""
         user_id = db_module.create_user("emailuser1", "testpass")
 
-        db_module.update_user_email(user_id, "user@example.com", "1234")
+        db_module.update_user_email(user_id, "user@example.com")
 
         user = db_module.get_user_by_id(user_id)
-        assert user.email_encrypted is not None
-        assert user.email_salt is not None
         assert user.email_hash is not None
 
     def test_update_user_email_clears_email_when_empty(self, db_module):
-        """update_user_email should clear email when passed empty values."""
+        """update_user_email should clear email when passed empty value."""
         user_id = db_module.create_user("emailuser2", "testpass")
-        db_module.update_user_email(user_id, "user@example.com", "1234")
+        db_module.update_user_email(user_id, "user@example.com")
 
         # Clear email
-        db_module.update_user_email(user_id, None, None)
+        db_module.update_user_email(user_id, None)
 
         user = db_module.get_user_by_id(user_id)
-        assert user.email_encrypted is None
-        assert user.email_salt is None
         assert user.email_hash is None
 
-    def test_update_user_email_clears_when_only_email_empty(self, db_module):
-        """update_user_email should clear when email is empty (even with PIN)."""
+    def test_update_user_email_clears_with_empty_string(self, db_module):
+        """update_user_email should clear when email is empty string."""
         user_id = db_module.create_user("emailuser3", "testpass")
-        db_module.update_user_email(user_id, "user@example.com", "1234")
+        db_module.update_user_email(user_id, "user@example.com")
 
-        # Clear email (no email, but PIN provided)
-        db_module.update_user_email(user_id, "", "1234")
+        # Clear email with empty string
+        db_module.update_user_email(user_id, "")
 
         user = db_module.get_user_by_id(user_id)
-        assert user.email_encrypted is None
+        assert user.email_hash is None
 
     def test_get_user_by_email_returns_user(self, db_module):
         """get_user_by_email should return user with matching email."""
         user_id = db_module.create_user("emailuser4", "testpass")
-        db_module.update_user_email(user_id, "findme@example.com", "1234")
+        db_module.update_user_email(user_id, "findme@example.com")
 
         found_user = db_module.get_user_by_email("findme@example.com")
 
@@ -614,7 +548,7 @@ class TestUserEmailOperations:
     def test_get_user_by_email_is_case_insensitive(self, db_module):
         """get_user_by_email should find user regardless of email case."""
         user_id = db_module.create_user("emailuser5", "testpass")
-        db_module.update_user_email(user_id, "CaseSensitive@Example.COM", "1234")
+        db_module.update_user_email(user_id, "CaseSensitive@Example.COM")
 
         # Should find with different case
         found_user = db_module.get_user_by_email("casesensitive@example.com")
@@ -625,7 +559,7 @@ class TestUserEmailOperations:
     def test_get_user_by_email_strips_whitespace(self, db_module):
         """get_user_by_email should find user even with whitespace in query."""
         user_id = db_module.create_user("emailuser6", "testpass")
-        db_module.update_user_email(user_id, "test@example.com", "1234")
+        db_module.update_user_email(user_id, "test@example.com")
 
         # Should find with whitespace
         found_user = db_module.get_user_by_email("  test@example.com  ")
@@ -650,7 +584,7 @@ class TestUserEmailOperations:
     def test_user_has_email_returns_true_when_set(self, db_module):
         """User.has_email() should return True when email is set."""
         user_id = db_module.create_user("hasemailuser", "testpass")
-        db_module.update_user_email(user_id, "has@example.com", "1234")
+        db_module.update_user_email(user_id, "has@example.com")
 
         user = db_module.get_user_by_id(user_id)
 

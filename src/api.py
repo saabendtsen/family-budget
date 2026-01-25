@@ -1122,13 +1122,12 @@ async def settings_page(request: Request):
 @app.post("/budget/settings/email")
 async def update_email(
     request: Request,
-    email: str = Form(""),
-    email_pin: str = Form("")
+    email: str = Form("")
 ):
-    """Update user email with encryption.
+    """Update user email hash.
 
-    Both email and PIN are required. The email will be encrypted with the PIN
-    and cannot be recovered without it.
+    Only the email hash is stored for password reset verification.
+    The actual email is never stored.
     """
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
@@ -1138,11 +1137,10 @@ async def update_email(
     user_id = get_user_id(request)
     user = db.get_user_by_id(user_id)
     email = email.strip() if email else None
-    email_pin = email_pin.strip() if email_pin else None
 
-    # If clearing email (both empty)
-    if not email and not email_pin:
-        db.update_user_email(user_id, None, None)
+    # If clearing email
+    if not email:
+        db.update_user_email(user_id, None)
         return templates.TemplateResponse(
             "settings.html",
             {
@@ -1154,7 +1152,7 @@ async def update_email(
         )
 
     # Validate email format
-    if email and "@" not in email:
+    if "@" not in email:
         return templates.TemplateResponse(
             "settings.html",
             {
@@ -1165,32 +1163,8 @@ async def update_email(
             }
         )
 
-    # If email provided, PIN is required
-    if email and not email_pin:
-        return templates.TemplateResponse(
-            "settings.html",
-            {
-                "request": request,
-                "username": user.username if user else "Ukendt",
-                "has_email": user.has_email() if user else False,
-                "error": "Du skal indtaste en 4-cifret kode for at beskytte din email"
-            }
-        )
-
-    # Validate PIN format (exactly 4 digits)
-    if email_pin and (len(email_pin) != 4 or not email_pin.isdigit()):
-        return templates.TemplateResponse(
-            "settings.html",
-            {
-                "request": request,
-                "username": user.username if user else "Ukendt",
-                "has_email": user.has_email() if user else False,
-                "error": "Koden skal være præcis 4 cifre"
-            }
-        )
-
-    # Encrypt and save email
-    db.update_user_email(user_id, email, email_pin)
+    # Save email hash
+    db.update_user_email(user_id, email)
 
     return templates.TemplateResponse(
         "settings.html",
@@ -1198,7 +1172,7 @@ async def update_email(
             "request": request,
             "username": user.username if user else "Ukendt",
             "has_email": True,
-            "success": "Email opdateret og krypteret"
+            "success": "Email tilføjet"
         }
     )
 
