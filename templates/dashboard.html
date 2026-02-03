@@ -4,60 +4,6 @@
 {% block title %}Oversigt - Budget{% endblock %}
 
 {% block content %}
-{% if not demo_mode %}
-<!-- Data Loss Warning (9. januar 2025) -->
-<div id="dataloss-warning" class="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-3 hidden">
-    <div class="max-w-md mx-auto flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2 flex-1 min-w-0">
-            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
-            <p class="text-sm text-amber-700 dark:text-amber-300">
-                Data fra efter 9. januar er desværre tabt.
-                <a href="/budget/info/datatab-januar-2025" class="underline hover:no-underline font-medium">Læs mere</a>
-            </p>
-        </div>
-        <button onclick="dismissWarning()" class="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 flex-shrink-0" aria-label="Luk advarsel">
-            <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-    </div>
-</div>
-<script>
-(function() {
-    const WARNING_KEY = 'budget_warning_dismissed';
-    const EXPIRY_DAYS = 30;
-    const warningEl = document.getElementById('dataloss-warning');
-
-    function isDismissed() {
-        try {
-            const stored = localStorage.getItem(WARNING_KEY);
-            if (!stored) return false;
-            const data = JSON.parse(stored);
-            if (data.expires && Date.now() > data.expires) {
-                localStorage.removeItem(WARNING_KEY);
-                return false;
-            }
-            return data.dismissed === true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    window.dismissWarning = function() {
-        warningEl.classList.add('hidden');
-        try {
-            localStorage.setItem(WARNING_KEY, JSON.stringify({
-                dismissed: true,
-                expires: Date.now() + (EXPIRY_DAYS * 24 * 60 * 60 * 1000)
-            }));
-        } catch (e) {}
-    };
-
-    if (!isDismissed()) {
-        warningEl.classList.remove('hidden');
-        lucide.createIcons();
-    }
-})();
-</script>
-{% endif %}
 
 <div class="max-w-md mx-auto px-4 py-6">
     <!-- Header -->
