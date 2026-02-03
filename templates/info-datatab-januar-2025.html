@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% set show_nav = false %}
+
+{% block title %}Datatab 9. januar 2025 - Budget{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Datatab 9. januar</h1>
+        <a href="/budget/login" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </a>
+    </div>
+
+    <div class="space-y-6">
+        <!-- Hvad skete der -->
+        <section class="bg-amber-50 dark:bg-amber-900/30 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+            <h2 class="text-lg font-semibold text-amber-900 dark:text-amber-100 mb-3 flex items-center">
+                <i data-lucide="alert-triangle" class="w-5 h-5 mr-2"></i>
+                Hvad skete der?
+            </h2>
+            <p class="text-amber-800 dark:text-amber-200 text-sm mb-2">
+                Den 9. januar 2025 opstod en fejl under server-vedligeholdelse,
+                der medførte datatab i Budget-appen.
+            </p>
+            <p class="text-amber-800 dark:text-amber-200 text-sm">
+                Alle data og nye brugere oprettet efter 9. januar er desværre gået tabt.
+            </p>
+        </section>
+
+        <!-- Hvad betyder det for dig -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="user" class="w-5 h-5 mr-2 text-primary"></i>
+                Hvad betyder det for dig?
+            </h2>
+            <ul class="text-gray-600 dark:text-gray-300 text-sm space-y-2">
+                <li class="flex items-start">
+                    <i data-lucide="check-circle" class="w-4 h-4 mr-2 mt-0.5 text-success flex-shrink-0"></i>
+                    <span><strong>Før 9. januar:</strong> Alle data er intakte og kan bruges som normalt</span>
+                </li>
+                <li class="flex items-start">
+                    <i data-lucide="x-circle" class="w-4 h-4 mr-2 mt-0.5 text-danger flex-shrink-0"></i>
+                    <span><strong>Efter 9. januar:</strong> Data skal indtastes igen</span>
+                </li>
+                <li class="flex items-start">
+                    <i data-lucide="user-plus" class="w-4 h-4 mr-2 mt-0.5 text-primary flex-shrink-0"></i>
+                    <span><strong>Nye brugere:</strong> Kan oprettes igen med samme brugernavn</span>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Hvorfor skete det -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <i data-lucide="info" class="w-5 h-5 mr-2 text-blue-500"></i>
+                Hvorfor skete det?
+            </h2>
+            <p class="text-gray-600 dark:text-gray-300 text-sm mb-2">
+                Under en Docker container-genstart blev databasen ikke korrekt gemt,
+                hvilket resulterede i tilbagerulning til sidste backup (9. januar).
+            </p>
+            <p class="text-gray-500 dark:text-gray-400 text-xs mt-3">
+                Vi arbejder på forbedret backup-rutine for at forhindre fremtidige datatab.
+            </p>
+        </section>
+
+        <!-- Hvad gør jeg nu -->
+        <section class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+            <h2 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
+                <i data-lucide="clipboard-check" class="w-5 h-5 mr-2"></i>
+                Hvad skal du gøre?
+            </h2>
+            <ul class="text-blue-800 dark:text-blue-200 text-sm space-y-2">
+                <li class="flex items-start">
+                    <span class="font-bold mr-2">1.</span>
+                    <span>Hvis du oprettede bruger efter 9. januar, skal du registrere dig igen</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="font-bold mr-2">2.</span>
+                    <span>Genindtast eventuelle udgifter/indkomst tilføjet efter 9. januar</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="font-bold mr-2">3.</span>
+                    <span>Fortsæt med at bruge appen som normalt</span>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Undskyldning -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border-l-4 border-primary">
+            <p class="text-gray-600 dark:text-gray-300 text-sm">
+                Vi beklager ulejligheden. Datatab er aldrig acceptabelt,
+                og vi tager dette meget seriøst.
+            </p>
+            <p class="text-gray-500 dark:text-gray-400 text-xs mt-2">
+                Hvis du har spørgsmål, er du velkommen til at kontakte os på
+                <a href="mailto:support@wibholmsolutions.com" class="text-primary hover:underline">support@wibholmsolutions.com</a>
+            </p>
+        </section>
+
+        <!-- Tilbage knap -->
+        <div class="flex gap-3">
+            <a href="/budget/register" class="flex-1 bg-primary text-white py-3 rounded-xl font-medium text-center hover:bg-blue-600 transition-colors">
+                Opret ny bruger
+            </a>
+            <a href="/budget/login" class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium text-center hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                Log ind
+            </a>
+        </div>
+
+        <!-- Sidst opdateret -->
+        <p class="text-center text-gray-400 dark:text-gray-500 text-xs">
+            Sidst opdateret: Januar 2025
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -11,6 +11,7 @@ htmlcov/
 
 # Data (personal budget data)
 data/*.db
+data/*.db.backup-*
 data/sessions.json
 
 # IDE

@@ -19,9 +19,9 @@ RUN pip install --no-cache-dir \
 # Copy application code
 COPY src/ ./src/
 COPY templates/ ./templates/
-COPY VERSION ./VERSION
 
-ARG APP_VERSION
+# Version can be set at build time, defaults to 0.0.0
+ARG APP_VERSION=0.0.0
 ENV APP_VERSION=$APP_VERSION
 
 # Create data directory
