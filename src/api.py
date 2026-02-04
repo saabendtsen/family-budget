@@ -658,12 +658,13 @@ async def expenses_page(request: Request):
         expenses = db.get_demo_expenses()
         expenses_by_category = db.get_demo_expenses_by_category()
         category_totals = db.get_demo_category_totals()
+        # Use demo user categories (user_id = 0)
+        categories = db.get_all_categories(0)
     else:
         expenses = db.get_all_expenses(user_id)
         expenses_by_category = db.get_expenses_by_category(user_id)
         category_totals = db.get_category_totals(user_id)
-
-    categories = db.get_all_categories()
+        categories = db.get_all_categories(user_id)
 
     return templates.TemplateResponse(
         "expenses.html",
@@ -765,9 +766,12 @@ async def categories_page(request: Request):
 
     user_id = get_user_id(request)
     demo = is_demo_mode(request)
-    categories = db.get_all_categories()
 
-    # Get usage count for each category (0 for demo mode since no real user)
+    # Use demo user (user_id = 0) for demo mode
+    effective_user_id = 0 if demo else user_id
+    categories = db.get_all_categories(effective_user_id)
+
+    # Get usage count for each category (0 for demo mode since it's read-only)
     if demo:
         category_usage = {cat.name: 0 for cat in categories}
     else:
@@ -796,7 +800,15 @@ async def add_category(
     if is_demo_mode(request):
         return RedirectResponse(url="/budget/categories", status_code=303)
 
-    db.add_category(name, icon)
+    user_id = get_user_id(request)
+    try:
+        db.add_category(user_id, name, icon)
+    except sqlite3.IntegrityError:
+        # Category name already exists for this user (UNIQUE constraint)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Kategorien '{name}' findes allerede"
+        )
     return RedirectResponse(url="/budget/categories", status_code=303)
 
 
@@ -813,26 +825,35 @@ async def edit_category(
     if is_demo_mode(request):
         return RedirectResponse(url="/budget/categories", status_code=303)
 
-    db.update_category(category_id, name, icon)
+    user_id = get_user_id(request)
+    try:
+        db.update_category(category_id, user_id, name, icon)
+    except sqlite3.IntegrityError:
+        # Category name already exists for this user (UNIQUE constraint)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Kategorien '{name}' findes allerede"
+        )
     return RedirectResponse(url="/budget/categories", status_code=303)
 
 
 @app.post("/budget/categories/{category_id}/delete")
 async def delete_category(request: Request, category_id: int):
-    """Delete a category.
+    """Delete a category for the current user.
 
-    Note: Categories are global (shared across all users). Deletion is allowed
-    for any authenticated user, but only if the category is not in use.
+    Categories are per-user. Deletion is only allowed for categories owned by
+    the current user, and only if the category is not in use.
     """
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
     if is_demo_mode(request):
         return RedirectResponse(url="/budget/categories", status_code=303)
 
+    user_id = get_user_id(request)
     try:
-        success = db.delete_category(category_id)
+        success = db.delete_category(category_id, user_id)
         if not success:
-            # Category is in use or doesn't exist
+            # Category is in use, doesn't exist, or not owned by user
             raise HTTPException(
                 status_code=400,
                 detail="Kategorien kan ikke slettes - den er stadig i brug"

@@ -289,11 +289,46 @@ def init_db():
         cur.execute("DROP TABLE expenses")
         cur.execute("ALTER TABLE expenses_new RENAME TO expenses")
 
-    # Insert default categories
+    # Migration: Add user_id to categories table for per-user categories
+    cur.execute("PRAGMA table_info(categories)")
+    cat_columns = [col[1] for col in cur.fetchall()]
+    if "user_id" not in cat_columns:
+        # Need to recreate table to change UNIQUE constraint from name to (user_id, name)
+        cur.execute("""
+            CREATE TABLE categories_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                icon TEXT,
+                UNIQUE(user_id, name)
+            )
+        """)
+
+        # Copy existing categories to demo user (user_id = 0)
+        cur.execute("""
+            INSERT INTO categories_new (id, user_id, name, icon)
+            SELECT id, 0, name, icon FROM categories
+        """)
+
+        # Drop old table and rename new one
+        cur.execute("DROP TABLE categories")
+        cur.execute("ALTER TABLE categories_new RENAME TO categories")
+
+        # Create index for lookups
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id, name)")
+
+    # Migration: Add category_id to expenses table for FK relationship
+    cur.execute("PRAGMA table_info(expenses)")
+    exp_columns = [col[1] for col in cur.fetchall()]
+    if "category_id" not in exp_columns:
+        cur.execute("ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES categories(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)")
+
+    # Insert default categories for demo user (user_id = 0)
     for name, icon in DEFAULT_CATEGORIES:
         cur.execute(
-            "INSERT OR IGNORE INTO categories (name, icon) VALUES (?, ?)",
-            (name, icon)
+            "INSERT OR IGNORE INTO categories (user_id, name, icon) VALUES (?, ?, ?)",
+            (0, name, icon)
         )
 
     conn.commit()
@@ -493,11 +528,14 @@ def get_category_totals(user_id: int) -> dict[str, float]:
 # Category operations
 # =============================================================================
 
-def get_all_categories() -> list[Category]:
-    """Get all categories."""
+def get_all_categories(user_id: int) -> list[Category]:
+    """Get all categories for a specific user."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, name, icon FROM categories ORDER BY name")
+    cur.execute(
+        "SELECT id, name, icon FROM categories WHERE user_id = ? ORDER BY name",
+        (user_id,)
+    )
     rows = cur.fetchall()
     conn.close()
     return [Category(**dict(row)) for row in rows]
@@ -513,38 +551,50 @@ def get_category_by_id(category_id: int) -> Optional[Category]:
     return Category(**dict(row)) if row else None
 
 
-def add_category(name: str, icon: str) -> int:
-    """Add a new category. Returns the new category ID."""
+def add_category(user_id: int, name: str, icon: str) -> int:
+    """Add a new category for a user. Returns the new category ID."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO categories (name, icon) VALUES (?, ?)", (name, icon))
+    cur.execute(
+        "INSERT INTO categories (user_id, name, icon) VALUES (?, ?, ?)",
+        (user_id, name, icon)
+    )
     category_id = cur.lastrowid
     conn.commit()
     conn.close()
     return category_id
 
 
-def update_category(category_id: int, name: str, icon: str):
-    """Update an existing category."""
+def update_category(category_id: int, user_id: int, name: str, icon: str):
+    """Update an existing category for a user."""
     conn = get_connection()
     cur = conn.cursor()
-    # Also update expenses that use this category
-    old_cat = get_category_by_id(category_id)
-    if old_cat and old_cat.name != name:
-        cur.execute(
-            "UPDATE expenses SET category = ? WHERE category = ?",
-            (name, old_cat.name)
-        )
+    # Also update expenses that use this category (by name, for backward compatibility)
     cur.execute(
-        "UPDATE categories SET name = ?, icon = ? WHERE id = ?",
-        (name, icon, category_id)
+        "SELECT name FROM categories WHERE id = ? AND user_id = ?",
+        (category_id, user_id)
+    )
+    row = cur.fetchone()
+    if row:
+        old_name = row[0]
+        if old_name != name:
+            # Update expense text names for backward compatibility
+            cur.execute(
+                "UPDATE expenses SET category = ? WHERE category = ? AND user_id = ?",
+                (name, old_name, user_id)
+            )
+
+    # Update the category
+    cur.execute(
+        "UPDATE categories SET name = ?, icon = ? WHERE id = ? AND user_id = ?",
+        (name, icon, category_id, user_id)
     )
     conn.commit()
     conn.close()
 
 
-def delete_category(category_id: int) -> bool:
-    """Delete a category. Returns False if category is in use.
+def delete_category(category_id: int, user_id: int) -> bool:
+    """Delete a category for a user. Returns False if category is in use or not owned.
 
     Uses a single connection to avoid race conditions between
     checking for usage and deleting.
@@ -552,22 +602,31 @@ def delete_category(category_id: int) -> bool:
     conn = get_connection()
     cur = conn.cursor()
     try:
-        # Get category name first
-        cur.execute("SELECT name FROM categories WHERE id = ?", (category_id,))
+        # Check category exists and belongs to user, get name for text-based check
+        cur.execute(
+            "SELECT name FROM categories WHERE id = ? AND user_id = ?",
+            (category_id, user_id)
+        )
         row = cur.fetchone()
         if not row:
             return False
 
-        cat_name = row[0]
+        category_name = row[0]
 
-        # Check if any expenses use this category
-        cur.execute("SELECT COUNT(*) FROM expenses WHERE category = ?", (cat_name,))
+        # Check if any expenses use this category (by category_id or by text name for backward compatibility)
+        cur.execute(
+            "SELECT COUNT(*) FROM expenses WHERE (category_id = ? OR category = ?) AND user_id = ?",
+            (category_id, category_name, user_id)
+        )
         count = cur.fetchone()[0]
         if count > 0:
             return False
 
         # Delete the category
-        cur.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        cur.execute(
+            "DELETE FROM categories WHERE id = ? AND user_id = ?",
+            (category_id, user_id)
+        )
         conn.commit()
         return True
     finally:
@@ -575,16 +634,79 @@ def delete_category(category_id: int) -> bool:
 
 
 def get_category_usage_count(category_name: str, user_id: int) -> int:
-    """Get number of expenses using a category for a specific user."""
+    """Get number of expenses using a category for a specific user.
+
+    Checks both category_id (FK) and category (text) fields for backward compatibility.
+    """
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT COUNT(*) FROM expenses WHERE category = ? AND user_id = ?",
-        (category_name, user_id)
+        """SELECT COUNT(*) FROM expenses
+           WHERE user_id = ?
+           AND (category = ? OR category_id = (SELECT id FROM categories WHERE name = ? AND user_id = ?))""",
+        (user_id, category_name, category_name, user_id)
     )
     count = cur.fetchone()[0]
     conn.close()
     return count
+
+
+def ensure_default_categories(user_id: int):
+    """Create default categories for a user if they don't exist."""
+    conn = get_connection()
+    cur = conn.cursor()
+    for name, icon in DEFAULT_CATEGORIES:
+        cur.execute(
+            "INSERT OR IGNORE INTO categories (user_id, name, icon) VALUES (?, ?, ?)",
+            (user_id, name, icon)
+        )
+    conn.commit()
+    conn.close()
+
+
+def migrate_user_categories(user_id: int):
+    """Migrate a user's expenses from text categories to category_id references.
+
+    Creates user-specific category records for each distinct category in their expenses.
+    Only creates categories that the user actually uses.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Get distinct categories used by this user
+    cur.execute(
+        "SELECT DISTINCT category FROM expenses WHERE user_id = ? AND category_id IS NULL",
+        (user_id,)
+    )
+    used_categories = [row[0] for row in cur.fetchall()]
+
+    for cat_name in used_categories:
+        # Get icon from demo category (user_id=0) or use default
+        cur.execute("SELECT icon FROM categories WHERE name = ? AND user_id = 0", (cat_name,))
+        row = cur.fetchone()
+        icon = row[0] if row else "more-horizontal"
+
+        # Create user-specific category
+        cur.execute(
+            "INSERT OR IGNORE INTO categories (user_id, name, icon) VALUES (?, ?, ?)",
+            (user_id, cat_name, icon)
+        )
+
+        # Get the category_id
+        cur.execute(
+            "SELECT id FROM categories WHERE user_id = ? AND name = ?",
+            (user_id, cat_name)
+        )
+        category_id = cur.fetchone()[0]
+
+        # Update expenses to use category_id
+        cur.execute(
+            "UPDATE expenses SET category_id = ? WHERE user_id = ? AND category = ? AND category_id IS NULL",
+            (category_id, user_id, cat_name)
+        )
+
+    conn.commit()
+    conn.close()
 
 
 # =============================================================================
@@ -622,12 +744,18 @@ def create_user(
         )
         user_id = cur.lastrowid
         conn.commit()
+        conn.close()
+
+        # Create default categories for new user
+        ensure_default_categories(user_id)
+
         return user_id
     except sqlite3.IntegrityError:
         # Username already exists (caught via UNIQUE constraint)
         return None
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 
 def get_user_by_username(username: str) -> Optional[User]:
