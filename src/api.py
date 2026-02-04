@@ -801,7 +801,14 @@ async def add_category(
         return RedirectResponse(url="/budget/categories", status_code=303)
 
     user_id = get_user_id(request)
-    db.add_category(user_id, name, icon)
+    try:
+        db.add_category(user_id, name, icon)
+    except sqlite3.IntegrityError:
+        # Category name already exists for this user (UNIQUE constraint)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Kategorien '{name}' findes allerede"
+        )
     return RedirectResponse(url="/budget/categories", status_code=303)
 
 
@@ -819,7 +826,14 @@ async def edit_category(
         return RedirectResponse(url="/budget/categories", status_code=303)
 
     user_id = get_user_id(request)
-    db.update_category(category_id, user_id, name, icon)
+    try:
+        db.update_category(category_id, user_id, name, icon)
+    except sqlite3.IntegrityError:
+        # Category name already exists for this user (UNIQUE constraint)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Kategorien '{name}' findes allerede"
+        )
     return RedirectResponse(url="/budget/categories", status_code=303)
 
 

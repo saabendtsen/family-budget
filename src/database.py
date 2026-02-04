@@ -634,12 +634,17 @@ def delete_category(category_id: int, user_id: int) -> bool:
 
 
 def get_category_usage_count(category_name: str, user_id: int) -> int:
-    """Get number of expenses using a category for a specific user."""
+    """Get number of expenses using a category for a specific user.
+
+    Checks both category_id (FK) and category (text) fields for backward compatibility.
+    """
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT COUNT(*) FROM expenses WHERE category = ? AND user_id = ?",
-        (category_name, user_id)
+        """SELECT COUNT(*) FROM expenses
+           WHERE user_id = ?
+           AND (category = ? OR category_id = (SELECT id FROM categories WHERE name = ? AND user_id = ?))""",
+        (user_id, category_name, category_name, user_id)
     )
     count = cur.fetchone()[0]
     conn.close()
