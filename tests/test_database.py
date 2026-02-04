@@ -267,8 +267,9 @@ class TestCategoryOperations:
     """Tests for category CRUD operations."""
 
     def test_default_categories_exist(self, db_module):
-        """Database should have default categories."""
-        categories = db_module.get_all_categories()
+        """Database should have default categories for demo user."""
+        # Demo user (user_id = 0) should have default categories
+        categories = db_module.get_all_categories(0)
 
         names = {c.name for c in categories}
         assert "Bolig" in names
@@ -276,17 +277,19 @@ class TestCategoryOperations:
         assert "Mad" in names
 
     def test_add_category(self, db_module):
-        """add_category should create a new category."""
-        category_id = db_module.add_category("Custom", "star")
+        """add_category should create a new category for a user."""
+        user_id = db_module.create_user("catuser1", "testpass")
+        category_id = db_module.add_category(user_id, "Custom", "star")
 
         category = db_module.get_category_by_id(category_id)
         assert category.name == "Custom"
         assert category.icon == "star"
 
     def test_update_category(self, db_module):
-        """update_category should modify existing category."""
-        category_id = db_module.add_category("OldName", "old-icon")
-        db_module.update_category(category_id, "NewName", "new-icon")
+        """update_category should modify existing category for a user."""
+        user_id = db_module.create_user("catuser2", "testpass")
+        category_id = db_module.add_category(user_id, "OldName", "old-icon")
+        db_module.update_category(category_id, user_id, "NewName", "new-icon")
 
         category = db_module.get_category_by_id(category_id)
         assert category.name == "NewName"
@@ -295,10 +298,10 @@ class TestCategoryOperations:
     def test_update_category_updates_expenses(self, db_module):
         """Renaming a category should update expenses using it."""
         user_id = db_module.create_user("cattest1", "testpass")
-        category_id = db_module.add_category("OldCat", "icon")
+        category_id = db_module.add_category(user_id, "OldCat", "icon")
         db_module.add_expense(user_id, "Test Expense", "OldCat", 100, "monthly")
 
-        db_module.update_category(category_id, "NewCat", "icon")
+        db_module.update_category(category_id, user_id, "NewCat", "icon")
 
         expenses = db_module.get_all_expenses(user_id)
         expense = next(e for e in expenses if e.name == "Test Expense")
@@ -306,9 +309,10 @@ class TestCategoryOperations:
 
     def test_delete_category_not_in_use(self, db_module):
         """delete_category should work when category is not in use."""
-        category_id = db_module.add_category("Unused", "icon")
+        user_id = db_module.create_user("catuser3", "testpass")
+        category_id = db_module.add_category(user_id, "Unused", "icon")
 
-        result = db_module.delete_category(category_id)
+        result = db_module.delete_category(category_id, user_id)
 
         assert result is True
         assert db_module.get_category_by_id(category_id) is None
@@ -316,10 +320,10 @@ class TestCategoryOperations:
     def test_delete_category_in_use_fails(self, db_module):
         """delete_category should fail when category has expenses."""
         user_id = db_module.create_user("cattest2", "testpass")
-        category_id = db_module.add_category("InUse", "icon")
+        category_id = db_module.add_category(user_id, "InUse", "icon")
         db_module.add_expense(user_id, "Uses Category", "InUse", 100, "monthly")
 
-        result = db_module.delete_category(category_id)
+        result = db_module.delete_category(category_id, user_id)
 
         assert result is False
         assert db_module.get_category_by_id(category_id) is not None
@@ -327,7 +331,7 @@ class TestCategoryOperations:
     def test_get_category_usage_count(self, db_module):
         """get_category_usage_count should return correct count for specific user."""
         user_id = db_module.create_user("cattest3", "testpass")
-        db_module.add_category("TestCat", "icon")
+        db_module.add_category(user_id, "TestCat", "icon")
         db_module.add_expense(user_id, "Exp1", "TestCat", 100, "monthly")
         db_module.add_expense(user_id, "Exp2", "TestCat", 200, "monthly")
 
@@ -338,7 +342,9 @@ class TestCategoryOperations:
         """get_category_usage_count should only count expenses for the specified user."""
         user1 = db_module.create_user("catuser1", "testpass")
         user2 = db_module.create_user("catuser2", "testpass")
-        db_module.add_category("SharedCat", "icon")
+        # Each user gets their own categories automatically
+        db_module.add_category(user1, "SharedCat", "icon")
+        db_module.add_category(user2, "SharedCat", "icon")
 
         # User 1 has 3 expenses
         db_module.add_expense(user1, "Exp1", "SharedCat", 100, "monthly")
