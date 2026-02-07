@@ -54,6 +54,18 @@ fi
 
 echo "[$(date)] New commits detected, deploying..."
 
+# Check CI status before deploying
+CI_STATUS=$(gh run list --repo saabendtsen/family-budget --workflow=ci.yml --branch="$BRANCH" --limit 1 \
+  --json conclusion,headSha \
+  --jq '.[0] | select(.headSha == "'"$REMOTE"'") | .conclusion')
+
+if [ "$CI_STATUS" != "success" ]; then
+    echo "[$(date)] ⏳ CI not yet successful for $(echo $REMOTE | cut -c1-7) (status: ${CI_STATUS:-pending})"
+    exit 0
+fi
+
+echo "[$(date)] ✅ CI passed, deploying..."
+
 # Pull and rebuild
 git reset --hard "origin/$BRANCH"
 export APP_VERSION=$(cat VERSION)
