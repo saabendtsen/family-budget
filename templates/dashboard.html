@@ -180,9 +180,9 @@
     function formatCurrency(amount) {
         return new Intl.NumberFormat('da-DK', {
             style: 'decimal',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(Math.round(amount)) + ' kr';
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount) + ' kr';
     }
 
     // === Period toggle (monthly/yearly) ===

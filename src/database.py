@@ -105,9 +105,10 @@ class Income:
 
     @property
     def monthly_amount(self) -> float:
-        """Return the monthly equivalent amount."""
+        """Return the monthly equivalent amount with 2 decimal precision."""
         divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
-        return self.amount / divisors.get(self.frequency, 1)
+        result = self.amount / divisors.get(self.frequency, 1)
+        return round(result, 2)
 
 
 @dataclass
@@ -121,9 +122,10 @@ class Expense:
 
     @property
     def monthly_amount(self) -> float:
-        """Return the monthly equivalent amount."""
+        """Return the monthly equivalent amount with 2 decimal precision."""
         divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
-        return self.amount / divisors.get(self.frequency, 1)
+        result = self.amount / divisors.get(self.frequency, 1)
+        return round(result, 2)
 
 
 @dataclass
