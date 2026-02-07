@@ -307,6 +307,21 @@ class TestCategoryOperations:
         expense = next(e for e in expenses if e.name == "Test Expense")
         assert expense.category == "NewCat"
 
+    def test_update_category_returns_count(self, db_module):
+        """update_category should return the number of updated expenses."""
+        user_id = db_module.create_user("catcount1", "testpass")
+        category_id = db_module.add_category(user_id, "CountCat", "icon")
+        db_module.add_expense(user_id, "Expense 1", "CountCat", 50, "monthly")
+        db_module.add_expense(user_id, "Expense 2", "CountCat", 75, "monthly")
+
+        # Rename should return 2 (two expenses updated)
+        count = db_module.update_category(category_id, user_id, "RenamedCat", "icon")
+        assert count == 2
+
+        # Icon-only change (no rename) should return 0
+        count = db_module.update_category(category_id, user_id, "RenamedCat", "new-icon")
+        assert count == 0
+
     def test_delete_category_not_in_use(self, db_module):
         """delete_category should work when category is not in use."""
         user_id = db_module.create_user("catuser3", "testpass")

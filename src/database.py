@@ -565,10 +565,14 @@ def add_category(user_id: int, name: str, icon: str) -> int:
     return category_id
 
 
-def update_category(category_id: int, user_id: int, name: str, icon: str):
-    """Update an existing category for a user."""
+def update_category(category_id: int, user_id: int, name: str, icon: str) -> int:
+    """Update an existing category for a user.
+
+    Returns the number of expenses that were updated due to a name change.
+    """
     conn = get_connection()
     cur = conn.cursor()
+    updated_expenses = 0
     # Also update expenses that use this category (by name, for backward compatibility)
     cur.execute(
         "SELECT name FROM categories WHERE id = ? AND user_id = ?",
@@ -583,6 +587,7 @@ def update_category(category_id: int, user_id: int, name: str, icon: str):
                 "UPDATE expenses SET category = ? WHERE category = ? AND user_id = ?",
                 (name, old_name, user_id)
             )
+            updated_expenses = cur.rowcount
 
     # Update the category
     cur.execute(
@@ -591,6 +596,7 @@ def update_category(category_id: int, user_id: int, name: str, icon: str):
     )
     conn.commit()
     conn.close()
+    return updated_expenses
 
 
 def delete_category(category_id: int, user_id: int) -> bool:

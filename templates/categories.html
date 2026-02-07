@@ -22,6 +22,12 @@
         </button>
     </div>
 
+    <!-- Toast notification for updated expenses -->
+    <div id="update-toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[70] bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm max-w-sm">
+        <i data-lucide="check-circle" class="w-5 h-5 flex-shrink-0"></i>
+        <span id="toast-message"></span>
+    </div>
+
     <!-- Category list -->
     {% if categories %}
     <div class="space-y-3">
@@ -46,7 +52,7 @@
             </div>
             <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                 <button
-                    onclick="openEditModal({{ cat.id }}, '{{ cat.name }}', '{{ cat.icon }}')"
+                    onclick="openEditModal({{ cat.id }}, '{{ cat.name }}', '{{ cat.icon }}', {{ category_usage[cat.name] }})"
                     class="flex-1 text-sm text-gray-600 dark:text-gray-400 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-1"
                 >
                     <i data-lucide="pencil" class="w-4 h-4"></i>
@@ -125,6 +131,12 @@
                     </div>
                     <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
                 </button>
+            </div>
+
+            <!-- Warning shown when editing a category that's in use -->
+            <div id="edit-warning" class="hidden bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+                <span id="edit-warning-text"></span>
             </div>
 
             <button
@@ -264,16 +276,27 @@
         modalTitle.textContent = 'Tilføj kategori';
         submitText.textContent = 'Tilføj';
         document.getElementById('category-name').value = '';
+        document.getElementById('edit-warning').classList.add('hidden');
         updateSelectedIcon('folder');
         modal.classList.remove('hidden');
         lucide.createIcons();
     }
 
-    function openEditModal(id, name, icon) {
+    function openEditModal(id, name, icon, usage) {
         form.action = '/budget/categories/' + id + '/edit';
         modalTitle.textContent = 'Rediger kategori';
         submitText.textContent = 'Gem';
         document.getElementById('category-name').value = name;
+
+        const warning = document.getElementById('edit-warning');
+        if (usage > 0) {
+            document.getElementById('edit-warning-text').textContent =
+                'Denne kategori bruges i ' + usage + ' udgift' + (usage !== 1 ? 'er' : '') + ' \u2013 de opdateres automatisk.';
+            warning.classList.remove('hidden');
+        } else {
+            warning.classList.add('hidden');
+        }
+
         updateSelectedIcon(icon);
         modal.classList.remove('hidden');
         lucide.createIcons();
@@ -301,5 +324,25 @@
             }
         }
     });
+
+    // Show toast if expenses were updated after category rename
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const updated = params.get('updated');
+        if (updated) {
+            const count = parseInt(updated, 10);
+            const toast = document.getElementById('update-toast');
+            const msg = document.getElementById('toast-message');
+            msg.textContent = 'Kategori opdateret. ' + count + ' udgift' + (count !== 1 ? 'er' : '') + ' blev også opdateret.';
+            toast.classList.remove('hidden');
+            lucide.createIcons();
+            // Remove query param from URL without reload
+            window.history.replaceState({}, '', window.location.pathname);
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 5000);
+        }
+    })();
 </script>
 {% endblock %}
