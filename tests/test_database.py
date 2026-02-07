@@ -374,6 +374,151 @@ class TestCategoryOperations:
         assert db_module.get_category_usage_count("SharedCat", user2) == 1
 
 
+class TestAccountOperations:
+    """Tests for account CRUD operations."""
+
+    def test_add_account(self, db_module):
+        """add_account should create a new account for a user."""
+        user_id = db_module.create_user("accuser1", "testpass")
+        account_id = db_module.add_account(user_id, "Lønkonto")
+
+        account = db_module.get_account_by_id(account_id, user_id)
+        assert account.name == "Lønkonto"
+
+    def test_get_all_accounts(self, db_module):
+        """get_all_accounts should return all accounts for a user."""
+        user_id = db_module.create_user("accuser2", "testpass")
+        db_module.add_account(user_id, "Lønkonto")
+        db_module.add_account(user_id, "Budgetkonto")
+
+        accounts = db_module.get_all_accounts(user_id)
+        names = {a.name for a in accounts}
+        assert names == {"Lønkonto", "Budgetkonto"}
+
+    def test_update_account(self, db_module):
+        """update_account should modify existing account for a user."""
+        user_id = db_module.create_user("accuser3", "testpass")
+        account_id = db_module.add_account(user_id, "OldName")
+        db_module.update_account(account_id, user_id, "NewName")
+
+        account = db_module.get_account_by_id(account_id, user_id)
+        assert account.name == "NewName"
+
+    def test_update_account_updates_expenses(self, db_module):
+        """Renaming an account should update expenses using it."""
+        user_id = db_module.create_user("acctest1", "testpass")
+        account_id = db_module.add_account(user_id, "OldAcc")
+        db_module.add_expense(user_id, "Test Expense", "Bolig", 100, "monthly", "OldAcc")
+
+        db_module.update_account(account_id, user_id, "NewAcc")
+
+        expenses = db_module.get_all_expenses(user_id)
+        expense = next(e for e in expenses if e.name == "Test Expense")
+        assert expense.account == "NewAcc"
+
+    def test_update_account_returns_count(self, db_module):
+        """update_account should return the number of updated expenses."""
+        user_id = db_module.create_user("acccount1", "testpass")
+        account_id = db_module.add_account(user_id, "CountAcc")
+        db_module.add_expense(user_id, "Exp 1", "Bolig", 50, "monthly", "CountAcc")
+        db_module.add_expense(user_id, "Exp 2", "Bolig", 75, "monthly", "CountAcc")
+
+        # Rename should return 2 (two expenses updated)
+        count = db_module.update_account(account_id, user_id, "RenamedAcc")
+        assert count == 2
+
+        # Same name (no rename) should return 0
+        count = db_module.update_account(account_id, user_id, "RenamedAcc")
+        assert count == 0
+
+    def test_delete_account_not_in_use(self, db_module):
+        """delete_account should work when account is not in use."""
+        user_id = db_module.create_user("accuser4", "testpass")
+        account_id = db_module.add_account(user_id, "Unused")
+
+        result = db_module.delete_account(account_id, user_id)
+
+        assert result is True
+        assert db_module.get_account_by_id(account_id, user_id) is None
+
+    def test_delete_account_in_use_fails(self, db_module):
+        """delete_account should fail when account has expenses."""
+        user_id = db_module.create_user("acctest2", "testpass")
+        account_id = db_module.add_account(user_id, "InUse")
+        db_module.add_expense(user_id, "Uses Account", "Bolig", 100, "monthly", "InUse")
+
+        result = db_module.delete_account(account_id, user_id)
+
+        assert result is False
+        assert db_module.get_account_by_id(account_id, user_id) is not None
+
+    def test_get_account_usage_count(self, db_module):
+        """get_account_usage_count should return correct count for specific user."""
+        user_id = db_module.create_user("acctest3", "testpass")
+        db_module.add_account(user_id, "TestAcc")
+        db_module.add_expense(user_id, "Exp1", "Bolig", 100, "monthly", "TestAcc")
+        db_module.add_expense(user_id, "Exp2", "Bolig", 200, "monthly", "TestAcc")
+
+        count = db_module.get_account_usage_count("TestAcc", user_id)
+        assert count == 2
+
+    def test_get_account_usage_count_user_isolation(self, db_module):
+        """get_account_usage_count should only count expenses for the specified user."""
+        user1 = db_module.create_user("acciso1", "testpass")
+        user2 = db_module.create_user("acciso2", "testpass")
+        db_module.add_account(user1, "SharedAcc")
+        db_module.add_account(user2, "SharedAcc")
+
+        db_module.add_expense(user1, "Exp1", "Bolig", 100, "monthly", "SharedAcc")
+        db_module.add_expense(user1, "Exp2", "Bolig", 200, "monthly", "SharedAcc")
+        db_module.add_expense(user2, "Exp3", "Bolig", 300, "monthly", "SharedAcc")
+
+        assert db_module.get_account_usage_count("SharedAcc", user1) == 2
+        assert db_module.get_account_usage_count("SharedAcc", user2) == 1
+
+    def test_get_account_totals(self, db_module):
+        """get_account_totals should return monthly totals per account."""
+        user_id = db_module.create_user("acctotal1", "testpass")
+        db_module.add_account(user_id, "Lønkonto")
+        db_module.add_account(user_id, "Budgetkonto")
+
+        db_module.add_expense(user_id, "Husleje", "Bolig", 12000, "monthly", "Budgetkonto")
+        db_module.add_expense(user_id, "El", "Forbrug", 600, "monthly", "Budgetkonto")
+        db_module.add_expense(user_id, "Netflix", "Abonnementer", 129, "monthly", "Lønkonto")
+        db_module.add_expense(user_id, "Ingen konto", "Andet", 500, "monthly")  # No account
+
+        totals = db_module.get_account_totals(user_id)
+        assert totals["Budgetkonto"] == 12600
+        assert totals["Lønkonto"] == 129
+        assert "Ingen konto" not in totals  # Expenses without account excluded
+
+    def test_get_account_totals_with_frequencies(self, db_module):
+        """get_account_totals should convert all frequencies to monthly."""
+        user_id = db_module.create_user("acctotal2", "testpass")
+        db_module.add_account(user_id, "Budget")
+
+        db_module.add_expense(user_id, "Monthly", "Bolig", 1200, "monthly", "Budget")
+        db_module.add_expense(user_id, "Yearly", "Bolig", 12000, "yearly", "Budget")
+
+        totals = db_module.get_account_totals(user_id)
+        assert totals["Budget"] == 2200  # 1200 + 12000/12
+
+    def test_expense_account_is_optional(self, db_module):
+        """Expenses should work with and without an account."""
+        user_id = db_module.create_user("accopt1", "testpass")
+
+        # Add expense without account
+        exp_id = db_module.add_expense(user_id, "No Account", "Bolig", 100, "monthly")
+        expense = db_module.get_expense_by_id(exp_id, user_id)
+        assert expense.account is None
+
+        # Add expense with account
+        db_module.add_account(user_id, "TestAcc")
+        exp_id2 = db_module.add_expense(user_id, "With Account", "Bolig", 200, "monthly", "TestAcc")
+        expense2 = db_module.get_expense_by_id(exp_id2, user_id)
+        assert expense2.account == "TestAcc"
+
+
 class TestUserOperations:
     """Tests for user CRUD and authentication."""
 

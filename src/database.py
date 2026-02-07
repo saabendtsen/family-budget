@@ -119,6 +119,7 @@ class Expense:
     category: str
     amount: float
     frequency: str  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
+    account: Optional[str] = None  # Optional bank account assignment
 
     @property
     def monthly_amount(self) -> float:
@@ -126,6 +127,12 @@ class Expense:
         divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
         result = self.amount / divisors.get(self.frequency, 1)
         return round(result, 2)
+
+
+@dataclass
+class Account:
+    id: int
+    name: str
 
 
 @dataclass
@@ -206,6 +213,15 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             icon TEXT
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            UNIQUE(user_id, name)
         )
     """)
 
@@ -326,6 +342,13 @@ def init_db():
         cur.execute("ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES categories(id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)")
 
+    # Migration: Add account column to expenses table
+    if "account" not in exp_columns:
+        cur.execute("ALTER TABLE expenses ADD COLUMN account TEXT")
+
+    # Create index for account lookups
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id, name)")
+
     # Insert default categories for demo user (user_id = 0)
     for name, icon in DEFAULT_CATEGORIES:
         cur.execute(
@@ -423,7 +446,7 @@ def get_all_expenses(user_id: int) -> list[Expense]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, user_id, name, category, amount, frequency
+        SELECT id, user_id, name, category, amount, frequency, account
         FROM expenses
         WHERE user_id = ?
         ORDER BY category, name
@@ -438,7 +461,7 @@ def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, user_id, name, category, amount, frequency FROM expenses WHERE id = ? AND user_id = ?",
+        "SELECT id, user_id, name, category, amount, frequency, account FROM expenses WHERE id = ? AND user_id = ?",
         (expense_id, user_id)
     )
     row = cur.fetchone()
@@ -446,14 +469,14 @@ def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
     return Expense(**dict(row)) if row is not None else None
 
 
-def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str) -> int:
+def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None) -> int:
     """Add a new expense for a user. Returns the new expense ID."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        """INSERT INTO expenses (user_id, name, category, amount, frequency)
-           VALUES (?, ?, ?, ?, ?)""",
-        (user_id, name, category, amount, frequency)
+        """INSERT INTO expenses (user_id, name, category, amount, frequency, account)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (user_id, name, category, amount, frequency, account)
     )
     expense_id = cur.lastrowid
     conn.commit()
@@ -461,15 +484,15 @@ def add_expense(user_id: int, name: str, category: str, amount: float, frequency
     return expense_id
 
 
-def update_expense(expense_id: int, user_id: int, name: str, category: str, amount: float, frequency: str):
+def update_expense(expense_id: int, user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None):
     """Update an existing expense for a user."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
         """UPDATE expenses
-           SET name = ?, category = ?, amount = ?, frequency = ?
+           SET name = ?, category = ?, amount = ?, frequency = ?, account = ?
            WHERE id = ? AND user_id = ?""",
-        (name, category, amount, frequency, expense_id, user_id)
+        (name, category, amount, frequency, account, expense_id, user_id)
     )
     conn.commit()
     conn.close()
@@ -718,6 +741,140 @@ def migrate_user_categories(user_id: int):
 
 
 # =============================================================================
+# Account operations
+# =============================================================================
+
+def get_all_accounts(user_id: int) -> list[Account]:
+    """Get all accounts for a specific user."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, name FROM accounts WHERE user_id = ? ORDER BY name",
+        (user_id,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return [Account(**dict(row)) for row in rows]
+
+
+def get_account_by_id(account_id: int, user_id: int) -> Optional[Account]:
+    """Get a specific account for a user."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, name FROM accounts WHERE id = ? AND user_id = ?", (account_id, user_id))
+    row = cur.fetchone()
+    conn.close()
+    return Account(**dict(row)) if row else None
+
+
+def add_account(user_id: int, name: str) -> int:
+    """Add a new account for a user. Returns the new account ID."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO accounts (user_id, name) VALUES (?, ?)",
+        (user_id, name)
+    )
+    account_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return account_id
+
+
+def update_account(account_id: int, user_id: int, name: str) -> int:
+    """Update an existing account for a user.
+
+    Returns the number of expenses that were updated due to a name change.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    updated_expenses = 0
+    cur.execute(
+        "SELECT name FROM accounts WHERE id = ? AND user_id = ?",
+        (account_id, user_id)
+    )
+    row = cur.fetchone()
+    if row:
+        old_name = row[0]
+        if old_name != name:
+            cur.execute(
+                "UPDATE expenses SET account = ? WHERE account = ? AND user_id = ?",
+                (name, old_name, user_id)
+            )
+            updated_expenses = cur.rowcount
+
+    cur.execute(
+        "UPDATE accounts SET name = ? WHERE id = ? AND user_id = ?",
+        (name, account_id, user_id)
+    )
+    conn.commit()
+    conn.close()
+    return updated_expenses
+
+
+def delete_account(account_id: int, user_id: int) -> bool:
+    """Delete an account for a user. Returns False if account is in use or not owned.
+
+    Uses a single connection to avoid race conditions between
+    checking for usage and deleting.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT name FROM accounts WHERE id = ? AND user_id = ?",
+            (account_id, user_id)
+        )
+        row = cur.fetchone()
+        if not row:
+            return False
+
+        account_name = row[0]
+
+        cur.execute(
+            "SELECT COUNT(*) FROM expenses WHERE account = ? AND user_id = ?",
+            (account_name, user_id)
+        )
+        count = cur.fetchone()[0]
+        if count > 0:
+            return False
+
+        cur.execute(
+            "DELETE FROM accounts WHERE id = ? AND user_id = ?",
+            (account_id, user_id)
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def get_account_usage_count(account_name: str, user_id: int) -> int:
+    """Get number of expenses using an account for a specific user."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT COUNT(*) FROM expenses WHERE user_id = ? AND account = ?",
+        (user_id, account_name)
+    )
+    count = cur.fetchone()[0]
+    conn.close()
+    return count
+
+
+def get_account_totals(user_id: int) -> dict[str, float]:
+    """Get total monthly amount per account for a user."""
+    expenses = get_all_expenses(user_id)
+    totals = {}
+    for exp in expenses:
+        if exp.account:
+            if exp.account not in totals:
+                totals[exp.account] = 0
+            totals[exp.account] += exp.monthly_amount
+    return totals
+
+
+# =============================================================================
 # User operations
 # =============================================================================
 
@@ -944,7 +1101,7 @@ def get_demo_total_income() -> float:
 
 def get_demo_expenses() -> list[Expense]:
     """Get demo expense data."""
-    return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq)
+    return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=None)
             for i, (name, cat, amount, freq) in enumerate(DEMO_EXPENSES)]
 
 
