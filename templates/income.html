@@ -65,11 +65,12 @@
                         <span class="text-gray-500 dark:text-gray-400 text-sm">Beløb</span>
                         <div class="mt-1 relative">
                             <input
-                                type="number"
+                                type="text"
                                 name="income_amount_{{ loop.index0 }}"
-                                value="{{ income.amount|int }}"
-                                step="1"
-                                min="0"
+                                value="{{ '%.2f'|format(income.amount)|replace('.', ',') }}"
+                                placeholder="0,00"
+                                pattern="[0-9]{1,6}(,?[0-9]{1,2})?"
+                                inputmode="decimal"
                                 class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                 required
                             >
@@ -161,11 +162,12 @@
                         <span class="text-gray-500 dark:text-gray-400 text-sm">Beløb</span>
                         <div class="mt-1 relative">
                             <input
-                                type="number"
+                                type="text"
                                 name="income_amount_${incomeIndex}"
-                                value="0"
-                                step="1"
-                                min="0"
+                                value="0,00"
+                                placeholder="0,00"
+                                pattern="[0-9]{1,6}(,?[0-9]{1,2})?"
+                                inputmode="decimal"
                                 class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                 required
                             >

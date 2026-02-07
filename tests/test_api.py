@@ -634,12 +634,12 @@ class TestHelpers:
     """Tests for helper functions."""
 
     def test_format_currency(self):
-        """format_currency should format Danish-style currency."""
+        """format_currency should format Danish-style currency with 2 decimal places."""
         from src.api import format_currency
 
-        assert format_currency(1000) == "1.000 kr"
-        assert format_currency(1000000) == "1.000.000 kr"
-        assert format_currency(0) == "0 kr"
+        assert format_currency(1000) == "1.000,00 kr"
+        assert format_currency(1000000) == "1.000.000,00 kr"
+        assert format_currency(0) == "0,00 kr"
 
 
 class TestFeedback:
@@ -737,3 +737,177 @@ class TestRateLimiting:
 
         assert response.status_code == 429
         assert "for mange" in response.text.lower()
+
+
+class TestAmountParsing:
+    """Tests for Danish amount format parsing."""
+
+    def test_parse_danish_amount_with_comma(self):
+        """Should parse comma as decimal separator."""
+        from src.api import parse_danish_amount
+        assert parse_danish_amount("1234,50") == 1234.50
+
+    def test_parse_danish_amount_with_thousands_and_comma(self):
+        """Should handle thousands separator with comma."""
+        from src.api import parse_danish_amount
+        assert parse_danish_amount("1.234,50") == 1234.50
+        assert parse_danish_amount("12.345,67") == 12345.67
+
+    def test_parse_danish_amount_whole_number(self):
+        """Should handle whole numbers."""
+        from src.api import parse_danish_amount
+        assert parse_danish_amount("1234") == 1234.00
+
+    def test_parse_danish_amount_single_decimal(self):
+        """Should handle single decimal place."""
+        from src.api import parse_danish_amount
+        assert parse_danish_amount("1234,5") == 1234.50
+
+    def test_parse_danish_amount_with_whitespace(self):
+        """Should trim whitespace."""
+        from src.api import parse_danish_amount
+        assert parse_danish_amount("  1234,50  ") == 1234.50
+
+    def test_parse_danish_amount_zero(self):
+        """Should handle zero."""
+        from src.api import parse_danish_amount
+        assert parse_danish_amount("0") == 0.00
+        assert parse_danish_amount("0,00") == 0.00
+
+    def test_parse_danish_amount_invalid_empty(self):
+        """Should raise ValueError for empty string."""
+        from src.api import parse_danish_amount
+        with pytest.raises(ValueError):
+            parse_danish_amount("")
+
+    def test_parse_danish_amount_invalid_text(self):
+        """Should raise ValueError for invalid text."""
+        from src.api import parse_danish_amount
+        with pytest.raises(ValueError):
+            parse_danish_amount("abc")
+
+    def test_parse_danish_amount_invalid_multiple_commas(self):
+        """Should raise ValueError for multiple commas."""
+        from src.api import parse_danish_amount
+        with pytest.raises(ValueError):
+            parse_danish_amount("12,34,56")
+
+
+class TestCurrencyFormatting:
+    """Tests for currency display formatting."""
+
+    def test_format_currency_with_decimals(self):
+        """Should format with 2 decimal places."""
+        from src.api import format_currency
+        assert format_currency(1234.50) == "1.234,50 kr"
+
+    def test_format_currency_whole_number(self):
+        """Should show .00 for whole numbers."""
+        from src.api import format_currency
+        assert format_currency(1234.0) == "1.234,00 kr"
+
+    def test_format_currency_large_amount(self):
+        """Should handle large amounts with thousands separator."""
+        from src.api import format_currency
+        assert format_currency(123456.78) == "123.456,78 kr"
+
+    def test_format_currency_small_amount(self):
+        """Should handle amounts less than 1 kr."""
+        from src.api import format_currency
+        assert format_currency(0.50) == "0,50 kr"
+
+    def test_format_currency_zero(self):
+        """Should format zero correctly."""
+        from src.api import format_currency
+        assert format_currency(0.00) == "0,00 kr"
+
+
+class TestExpensesWithDecimals:
+    """Tests for decimal amounts in expenses."""
+
+    def test_add_expense_with_decimals(self, authenticated_client, db_module):
+        """Should accept decimal amounts in Danish format."""
+        response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Test Expense",
+                "category": "Bolig",
+                "amount": "1234,50",
+                "frequency": "monthly"
+            },
+            follow_redirects=False
+        )
+        assert response.status_code == 303
+
+    def test_add_expense_with_thousands_separator(self, authenticated_client, db_module):
+        """Should accept thousands separator."""
+        response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Expensive Item",
+                "category": "Bolig",
+                "amount": "12.345,67",
+                "frequency": "monthly"
+            },
+            follow_redirects=False
+        )
+        assert response.status_code == 303
+
+    def test_add_expense_rejects_invalid_format(self, authenticated_client, db_module):
+        """Should reject invalid amount format."""
+        response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Test",
+                "category": "Bolig",
+                "amount": "abc",
+                "frequency": "monthly"
+            }
+        )
+        assert response.status_code == 400
+
+    def test_add_expense_rejects_negative_amount(self, authenticated_client, db_module):
+        """Should reject negative amounts."""
+        response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Test",
+                "category": "Bolig",
+                "amount": "-100,00",
+                "frequency": "monthly"
+            }
+        )
+        assert response.status_code == 400
+
+    def test_edit_expense_with_decimals(self, authenticated_client, db_module):
+        """Should accept decimal amounts when editing."""
+        # First create an expense
+        add_response = authenticated_client.post(
+            "/budget/expenses/add",
+            data={
+                "name": "Test Expense",
+                "category": "Bolig",
+                "amount": "1000,00",
+                "frequency": "monthly"
+            }
+        )
+        # Get the expense ID from the database
+        from src.database import get_connection
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM expenses ORDER BY id DESC LIMIT 1")
+        expense_id = cur.fetchone()[0]
+        conn.close()
+
+        # Now edit it
+        response = authenticated_client.post(
+            f"/budget/expenses/{expense_id}/edit",
+            data={
+                "name": "Updated Expense",
+                "category": "Bolig",
+                "amount": "1234,56",
+                "frequency": "monthly"
+            },
+            follow_redirects=False
+        )
+        assert response.status_code == 303

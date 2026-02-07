@@ -173,9 +173,43 @@ app.add_middleware(RateLimitMiddleware, max_attempts=5, window_seconds=300)
 # Template helpers
 # =============================================================================
 
+def parse_danish_amount(amount_str: str) -> float:
+    """Parse Danish currency format to float.
+
+    Accepts:
+    - "1234,50" -> 1234.50
+    - "1.234,50" -> 1234.50
+    - "1234.5" -> 1234.50
+    - "1234" -> 1234.00
+
+    Returns float with 2 decimal precision.
+    Raises ValueError for invalid input.
+    """
+    if not amount_str or not isinstance(amount_str, str):
+        raise ValueError("Invalid amount")
+
+    # Remove whitespace
+    amount_str = amount_str.strip()
+
+    # Remove thousands separator (period)
+    amount_str = amount_str.replace('.', '')
+
+    # Replace comma with period for float parsing
+    amount_str = amount_str.replace(',', '.')
+
+    try:
+        amount = float(amount_str)
+        # Round to 2 decimals to prevent floating point errors
+        return round(amount, 2)
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid amount format: {amount_str}")
+
+
 def format_currency(amount: float) -> str:
-    """Format amount as Danish currency."""
-    return f"{amount:,.0f}".replace(",", ".") + " kr"
+    """Format amount as Danish currency with 2 decimal places."""
+    # Format: 1234.50 -> "1.234,50 kr"
+    formatted = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return formatted + " kr"
 
 
 # Add to Jinja2 globals
@@ -622,7 +656,10 @@ async def update_income(request: Request):
             amount_str = form.get(f"income_amount_{i}", "0")
             frequency = form.get(f"income_frequency_{i}", "monthly")
             if name:  # Only save if name is provided
-                amount = float(amount_str) if amount_str else 0
+                try:
+                    amount = parse_danish_amount(amount_str) if amount_str else 0.00
+                except ValueError:
+                    raise HTTPException(status_code=400, detail=f"Ugyldigt beløb format for {name}")
                 # Validate frequency
                 if frequency not in ('monthly', 'quarterly', 'semi-annual', 'yearly'):
                     frequency = 'monthly'
@@ -687,7 +724,7 @@ async def add_expense(
     request: Request,
     name: str = Form(...),
     category: str = Form(...),
-    amount: float = Form(...),
+    amount: str = Form(...),
     frequency: str = Form(...)
 ):
     """Add a new expense."""
@@ -700,9 +737,20 @@ async def add_expense(
     if frequency not in VALID_FREQUENCIES:
         raise HTTPException(status_code=400, detail="Ugyldig frekvens")
 
+    # Parse and validate amount
+    try:
+        amount_float = parse_danish_amount(amount)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ugyldigt beløb format")
+
+    if amount_float < 0:
+        raise HTTPException(status_code=400, detail="Beløb skal være positivt")
+    if amount_float > 1000000:
+        raise HTTPException(status_code=400, detail="Beløb er for stort")
+
     user_id = get_user_id(request)
     try:
-        db.add_expense(user_id, name, category, amount, frequency)
+        db.add_expense(user_id, name, category, amount_float, frequency)
     except sqlite3.Error as e:
         logger.error(f"Database error adding expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved tilfoejelse af udgiften")
@@ -732,7 +780,7 @@ async def edit_expense(
     expense_id: int,
     name: str = Form(...),
     category: str = Form(...),
-    amount: float = Form(...),
+    amount: str = Form(...),
     frequency: str = Form(...)
 ):
     """Edit an expense."""
@@ -745,9 +793,20 @@ async def edit_expense(
     if frequency not in VALID_FREQUENCIES:
         raise HTTPException(status_code=400, detail="Ugyldig frekvens")
 
+    # Parse and validate amount
+    try:
+        amount_float = parse_danish_amount(amount)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ugyldigt beløb format")
+
+    if amount_float < 0:
+        raise HTTPException(status_code=400, detail="Beløb skal være positivt")
+    if amount_float > 1000000:
+        raise HTTPException(status_code=400, detail="Beløb er for stort")
+
     user_id = get_user_id(request)
     try:
-        db.update_expense(expense_id, user_id, name, category, amount, frequency)
+        db.update_expense(expense_id, user_id, name, category, amount_float, frequency)
     except sqlite3.Error as e:
         logger.error(f"Database error updating expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved opdatering af udgiften")

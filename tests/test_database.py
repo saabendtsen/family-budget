@@ -710,3 +710,81 @@ class TestPasswordResetTokens:
         # Old password should fail, new should work
         assert db_module.authenticate_user("resetuser7", "oldpassword") is None
         assert db_module.authenticate_user("resetuser7", "newpassword") is not None
+
+
+class TestDecimalCalculations:
+    """Tests for decimal amount calculations."""
+
+    def test_income_monthly_amount_with_decimals(self, db_module):
+        """monthly_amount should handle decimals correctly."""
+        user_id = db_module.create_user("decimaltest1", "testpass")
+        db_module.add_income(user_id, "Person 1", 1234.56, "monthly")
+
+        incomes = db_module.get_all_income(user_id)
+        assert incomes[0].amount == 1234.56
+        assert incomes[0].monthly_amount == 1234.56
+
+    def test_expense_monthly_amount_with_decimals(self, db_module):
+        """Expense monthly_amount should handle decimals correctly."""
+        user_id = db_module.create_user("decimaltest2", "testpass")
+        db_module.add_expense(user_id, "Test Expense", "Bolig", 1234.56, "monthly")
+
+        expenses = db_module.get_all_expenses(user_id)
+        assert expenses[0].amount == 1234.56
+        assert expenses[0].monthly_amount == 1234.56
+
+    def test_income_quarterly_to_monthly_with_decimals(self, db_module):
+        """Should correctly convert quarterly to monthly with decimals."""
+        user_id = db_module.create_user("decimaltest3", "testpass")
+        db_module.add_income(user_id, "Bonus", 3000.00, "quarterly")
+
+        incomes = db_module.get_all_income(user_id)
+        assert incomes[0].amount == 3000.00
+        assert incomes[0].monthly_amount == 1000.00
+
+    def test_expense_yearly_to_monthly_with_rounding(self, db_module):
+        """Should correctly convert yearly to monthly with rounding."""
+        user_id = db_module.create_user("decimaltest4", "testpass")
+        db_module.add_expense(user_id, "Insurance", "Forsikring", 1200.50, "yearly")
+
+        expenses = db_module.get_all_expenses(user_id)
+        # 1200.50 / 12 = 100.041666... should round to 100.04
+        assert expenses[0].amount == 1200.50
+        assert expenses[0].monthly_amount == 100.04
+
+    def test_income_semi_annual_to_monthly_with_decimals(self, db_module):
+        """Should correctly convert semi-annual to monthly."""
+        user_id = db_module.create_user("decimaltest5", "testpass")
+        db_module.add_income(user_id, "Semi-annual Bonus", 6000.60, "semi-annual")
+
+        incomes = db_module.get_all_income(user_id)
+        # 6000.60 / 6 = 1000.10
+        assert incomes[0].amount == 6000.60
+        assert incomes[0].monthly_amount == 1000.10
+
+    def test_expense_with_precise_division(self, db_module):
+        """Should handle precise division with proper rounding."""
+        user_id = db_module.create_user("decimaltest6", "testpass")
+        # 100.00 / 3 = 33.333... should round to 33.33
+        db_module.add_expense(user_id, "Quarterly Fee", "Andet", 100.00, "quarterly")
+
+        expenses = db_module.get_all_expenses(user_id)
+        assert expenses[0].monthly_amount == 33.33
+
+    def test_total_income_with_decimals(self, db_module):
+        """Total income should handle decimals correctly."""
+        user_id = db_module.create_user("decimaltest7", "testpass")
+        db_module.add_income(user_id, "Person 1", 1234.56, "monthly")
+        db_module.add_income(user_id, "Person 2", 2345.67, "monthly")
+
+        total = db_module.get_total_income(user_id)
+        assert total == 3580.23
+
+    def test_total_expenses_with_decimals(self, db_module):
+        """Total expenses should handle decimals correctly."""
+        user_id = db_module.create_user("decimaltest8", "testpass")
+        db_module.add_expense(user_id, "Expense 1", "Bolig", 1234.56, "monthly")
+        db_module.add_expense(user_id, "Expense 2", "Mad", 2345.67, "monthly")
+
+        total = db_module.get_total_monthly_expenses(user_id)
+        assert total == 3580.23
