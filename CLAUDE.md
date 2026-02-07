@@ -2,6 +2,31 @@
 
 Simpelt budget-overblik webapp bygget med FastAPI og Jinja2 templates.
 
+## Documentation Navigation for AI Agents
+
+**Start here based on your task:**
+
+- **Adding/modifying a route**: Read `src/API-REFERENCE.md` → find route → see line number
+- **Understanding database operations**: Read `src/CLAUDE.md` → Database Functions Index
+- **Following coding patterns**: Read `PATTERNS.md` → specific pattern section
+- **Understanding "why" decisions**: Read `docs/adr/README.md` → specific ADR
+- **Step-by-step implementation**: Read `docs/guides/` → relevant guide
+- **Template/frontend work**: Read `templates/CLAUDE.md`
+- **Testing**: Read `tests/CLAUDE.md`
+
+### Quick Reference Table
+
+| Task | Files to Read (in order) |
+|------|--------------------------|
+| Add new route | `src/API-REFERENCE.md` → `PATTERNS.md` → `docs/guides/adding-new-route.md` |
+| Modify login | `src/API-REFERENCE.md` (POST /budget/login, line 261) → `src/api.py:261` |
+| Change password hashing | `docs/adr/001-pbkdf2-password-hashing.md` → `src/database.py:23` |
+| Add expense field | `src/CLAUDE.md` → Expense Management → `PATTERNS.md` → Form Pattern |
+| Style a modal | `PATTERNS.md` → Modal Pattern → `templates/expenses.html:151` |
+| Add database function | `docs/guides/database-operations.md` → `PATTERNS.md` → CRUD Pattern |
+
+**Performance tip**: Use these indexes to jump directly to relevant code. Don't read entire files (api.py is 1,256 lines!).
+
 ## Stack
 - **Backend:** FastAPI + SQLite
 - **Frontend:** Jinja2 templates + TailwindCSS (CDN) + Lucide icons
@@ -41,11 +66,12 @@ SQLite database i `data/budget.db` med tabeller:
 - `password_reset_tokens` - Tokens til password reset
 
 ## Sikkerhed
-- Passwords hashes med PBKDF2 (100.000 iterationer)
+- Passwords hashes med PBKDF2 (600.000 iterationer - OWASP 2023 standard)
 - Session tokens hashes med SHA-256
 - Cookies: httponly, secure, samesite=lax
 - Rate limiting: 5 login forsøg per 5 minutter
 - Password reset tokens: SHA-256 hashed, 1 times udløb, single-use
+- Se `docs/adr/` for security rationale
 
 ## Demo mode
 Demo mode viser eksempeldata uden login. Tilgås via `/budget/demo`.
