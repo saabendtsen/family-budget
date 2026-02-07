@@ -827,14 +827,17 @@ async def edit_category(
 
     user_id = get_user_id(request)
     try:
-        db.update_category(category_id, user_id, name, icon)
+        updated_count = db.update_category(category_id, user_id, name, icon)
     except sqlite3.IntegrityError:
         # Category name already exists for this user (UNIQUE constraint)
         raise HTTPException(
             status_code=400,
             detail=f"Kategorien '{name}' findes allerede"
         )
-    return RedirectResponse(url="/budget/categories", status_code=303)
+    url = "/budget/categories"
+    if updated_count > 0:
+        url += f"?updated={updated_count}"
+    return RedirectResponse(url=url, status_code=303)
 
 
 @app.post("/budget/categories/{category_id}/delete")

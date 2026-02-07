@@ -608,7 +608,7 @@ class TestCategoryEndpoints:
 
     def test_edit_category(self, authenticated_client, db_module):
         """POST to edit category should update it."""
-        category_id = db_module.add_category("OldName", "old-icon")
+        category_id = db_module.add_category(authenticated_client.user_id, "OldName", "old-icon")
 
         response = authenticated_client.post(
             f"/budget/categories/{category_id}/edit",
@@ -620,7 +620,7 @@ class TestCategoryEndpoints:
 
     def test_delete_category(self, authenticated_client, db_module):
         """POST to delete unused category should remove it."""
-        category_id = db_module.add_category("Unused", "icon")
+        category_id = db_module.add_category(authenticated_client.user_id, "Unused", "icon")
 
         response = authenticated_client.post(
             f"/budget/categories/{category_id}/delete",
