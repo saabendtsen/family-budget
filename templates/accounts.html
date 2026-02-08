@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% set active_page = 'expenses' %}
+
+{% block title %}Kontoer - Budget{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <a href="/budget/expenses" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1 text-sm mb-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Tilbage til udgifter
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Kontoer</h1>
+        </div>
+        <button
+            onclick="openAddModal()"
+            class="bg-primary text-white p-3 rounded-xl shadow-lg hover:bg-blue-600 active:bg-blue-700 transition-colors"
+        >
+            <i data-lucide="plus" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+    <!-- Toast notification for updated expenses -->
+    <div id="update-toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[70] bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm max-w-sm">
+        <i data-lucide="check-circle" class="w-5 h-5 flex-shrink-0"></i>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- Account list -->
+    {% if accounts %}
+    <div class="space-y-3">
+        {% for acc in accounts %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                        <i data-lucide="landmark" class="w-5 h-5 text-gray-600 dark:text-gray-400"></i>
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{{ acc.name }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                            {% if account_usage[acc.name] > 0 %}
+                            {{ account_usage[acc.name] }} udgift{{ 'er' if account_usage[acc.name] != 1 else '' }}
+                            {% else %}
+                            Ingen udgifter
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <button
+                    onclick="openEditModal({{ acc.id }}, '{{ acc.name }}', {{ account_usage[acc.name] }})"
+                    class="flex-1 text-sm text-gray-600 dark:text-gray-400 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-1"
+                >
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                    Rediger
+                </button>
+                {% if account_usage[acc.name] == 0 %}
+                <form method="post" action="/budget/accounts/{{ acc.id }}/delete" class="flex-1">
+                    <button
+                        type="submit"
+                        onclick="return confirm('Slet {{ acc.name }}?')"
+                        class="w-full text-sm text-red-600 dark:text-red-400 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center justify-center gap-1"
+                    >
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        Slet
+                    </button>
+                </form>
+                {% else %}
+                <div class="flex-1 text-sm text-gray-400 dark:text-gray-600 py-2 rounded-lg flex items-center justify-center gap-1 cursor-not-allowed" title="Kontoen er i brug">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                    I brug
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty state -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-8 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="landmark" class="w-6 h-6 text-gray-400"></i>
+        </div>
+        <h3 class="font-medium text-gray-900 dark:text-white mb-1">Ingen kontoer</h3>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">Tilføj kontoer for at spore hvilken konto hver udgift hører til</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="modal" class="fixed inset-0 bg-black/50 flex items-end justify-center z-50 hidden">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl p-6 animate-slide-up">
+        <div class="flex justify-between items-center mb-4">
+            <h2 id="modal-title" class="text-xl font-bold text-gray-900 dark:text-white">Tilføj konto</h2>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <form id="account-form" method="post" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Navn</label>
+                <input
+                    type="text"
+                    name="name"
+                    id="account-name"
+                    placeholder="f.eks. Lønkonto"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                >
+            </div>
+
+            <!-- Warning shown when editing an account that's in use -->
+            <div id="edit-warning" class="hidden bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+                <span id="edit-warning-text"></span>
+            </div>
+
+            <button
+                type="submit"
+                class="w-full bg-primary text-white py-4 rounded-xl font-medium hover:bg-blue-600 active:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            >
+                <i data-lucide="check" class="w-5 h-5"></i>
+                <span id="submit-text">Tilføj</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+    @keyframes slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+    .animate-slide-up {
+        animation: slide-up 0.3s ease-out;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const modal = document.getElementById('modal');
+    const form = document.getElementById('account-form');
+    const modalTitle = document.getElementById('modal-title');
+    const submitText = document.getElementById('submit-text');
+
+    function openAddModal() {
+        form.action = '/budget/accounts/add';
+        modalTitle.textContent = 'Tilføj konto';
+        submitText.textContent = 'Tilføj';
+        document.getElementById('account-name').value = '';
+        document.getElementById('edit-warning').classList.add('hidden');
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function openEditModal(id, name, usage) {
+        form.action = '/budget/accounts/' + id + '/edit';
+        modalTitle.textContent = 'Rediger konto';
+        submitText.textContent = 'Gem';
+        document.getElementById('account-name').value = name;
+
+        const warning = document.getElementById('edit-warning');
+        if (usage > 0) {
+            document.getElementById('edit-warning-text').textContent =
+                'Denne konto bruges i ' + usage + ' udgift' + (usage !== 1 ? 'er' : '') + ' \u2013 de opdateres automatisk.';
+            warning.classList.remove('hidden');
+        } else {
+            warning.classList.add('hidden');
+        }
+
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    // Close modal on backdrop click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // Close modal on escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    // Show toast if expenses were updated after account rename
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const updated = params.get('updated');
+        if (updated) {
+            const count = parseInt(updated, 10);
+            const toast = document.getElementById('update-toast');
+            const msg = document.getElementById('toast-message');
+            msg.textContent = 'Konto opdateret. ' + count + ' udgift' + (count !== 1 ? 'er' : '') + ' blev også opdateret.';
+            toast.classList.remove('hidden');
+            lucide.createIcons();
+            // Remove query param from URL without reload
+            window.history.replaceState({}, '', window.location.pathname);
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 5000);
+        }
+    })();
+</script>
+{% endblock %}

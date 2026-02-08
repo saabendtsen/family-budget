@@ -581,12 +581,14 @@ async def dashboard(request: Request):
         total_expenses = db.get_demo_total_expenses()
         expenses_by_category = db.get_demo_expenses_by_category()
         category_totals = db.get_demo_category_totals()
+        account_totals = {}
     else:
         incomes = db.get_all_income(user_id)
         total_income = db.get_total_income(user_id)
         total_expenses = db.get_total_monthly_expenses(user_id)
         expenses_by_category = db.get_expenses_by_category(user_id)
         category_totals = db.get_category_totals(user_id)
+        account_totals = db.get_account_totals(user_id)
 
     remaining = total_income - total_expenses
 
@@ -607,6 +609,7 @@ async def dashboard(request: Request):
             "expenses_by_category": expenses_by_category,
             "category_totals": category_totals,
             "category_percentages": category_percentages,
+            "account_totals": account_totals,
             "demo_mode": demo,
         }
     )
@@ -697,11 +700,13 @@ async def expenses_page(request: Request):
         category_totals = db.get_demo_category_totals()
         # Use demo user categories (user_id = 0)
         categories = db.get_all_categories(0)
+        accounts = []
     else:
         expenses = db.get_all_expenses(user_id)
         expenses_by_category = db.get_expenses_by_category(user_id)
         category_totals = db.get_category_totals(user_id)
         categories = db.get_all_categories(user_id)
+        accounts = db.get_all_accounts(user_id)
 
     return templates.TemplateResponse(
         "expenses.html",
@@ -711,6 +716,7 @@ async def expenses_page(request: Request):
             "expenses_by_category": expenses_by_category,
             "category_totals": category_totals,
             "categories": categories,
+            "accounts": accounts,
             "demo_mode": demo,
         }
     )
@@ -725,7 +731,8 @@ async def add_expense(
     name: str = Form(...),
     category: str = Form(...),
     amount: str = Form(...),
-    frequency: str = Form(...)
+    frequency: str = Form(...),
+    account: str = Form("")
 ):
     """Add a new expense."""
     if not check_auth(request):
@@ -749,8 +756,9 @@ async def add_expense(
         raise HTTPException(status_code=400, detail="Beløb er for stort")
 
     user_id = get_user_id(request)
+    account_value = account if account else None
     try:
-        db.add_expense(user_id, name, category, amount_float, frequency)
+        db.add_expense(user_id, name, category, amount_float, frequency, account_value)
     except sqlite3.Error as e:
         logger.error(f"Database error adding expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved tilfoejelse af udgiften")
@@ -781,7 +789,8 @@ async def edit_expense(
     name: str = Form(...),
     category: str = Form(...),
     amount: str = Form(...),
-    frequency: str = Form(...)
+    frequency: str = Form(...),
+    account: str = Form("")
 ):
     """Edit an expense."""
     if not check_auth(request):
@@ -805,8 +814,9 @@ async def edit_expense(
         raise HTTPException(status_code=400, detail="Beløb er for stort")
 
     user_id = get_user_id(request)
+    account_value = account if account else None
     try:
-        db.update_expense(expense_id, user_id, name, category, amount_float, frequency)
+        db.update_expense(expense_id, user_id, name, category, amount_float, frequency, account_value)
     except sqlite3.Error as e:
         logger.error(f"Database error updating expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved opdatering af udgiften")
@@ -924,6 +934,108 @@ async def delete_category(request: Request, category_id: int):
         logger.error(f"Database error deleting category: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved sletning af kategorien")
     return RedirectResponse(url="/budget/categories", status_code=303)
+
+
+# =============================================================================
+# Accounts
+# =============================================================================
+
+@app.get("/budget/accounts", response_class=HTMLResponse)
+async def accounts_page(request: Request):
+    """Accounts management page."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    user_id = get_user_id(request)
+    demo = is_demo_mode(request)
+
+    effective_user_id = 0 if demo else user_id
+    accounts = db.get_all_accounts(effective_user_id)
+
+    if demo:
+        account_usage = {acc.name: 0 for acc in accounts}
+    else:
+        account_usage = {acc.name: db.get_account_usage_count(acc.name, user_id) for acc in accounts}
+
+    return templates.TemplateResponse(
+        "accounts.html",
+        {
+            "request": request,
+            "accounts": accounts,
+            "account_usage": account_usage,
+            "demo_mode": demo,
+        }
+    )
+
+
+@app.post("/budget/accounts/add")
+async def add_account(
+    request: Request,
+    name: str = Form(...)
+):
+    """Add a new account."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/accounts", status_code=303)
+
+    user_id = get_user_id(request)
+    try:
+        db.add_account(user_id, name)
+    except sqlite3.IntegrityError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Kontoen '{name}' findes allerede"
+        )
+    return RedirectResponse(url="/budget/accounts", status_code=303)
+
+
+@app.post("/budget/accounts/{account_id}/edit")
+async def edit_account(
+    request: Request,
+    account_id: int,
+    name: str = Form(...)
+):
+    """Edit an account."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/accounts", status_code=303)
+
+    user_id = get_user_id(request)
+    try:
+        updated_count = db.update_account(account_id, user_id, name)
+    except sqlite3.IntegrityError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Kontoen '{name}' findes allerede"
+        )
+    url = "/budget/accounts"
+    if updated_count > 0:
+        url += f"?updated={updated_count}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+@app.post("/budget/accounts/{account_id}/delete")
+async def delete_account(request: Request, account_id: int):
+    """Delete an account for the current user."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+    if is_demo_mode(request):
+        return RedirectResponse(url="/budget/accounts", status_code=303)
+
+    user_id = get_user_id(request)
+    try:
+        success = db.delete_account(account_id, user_id)
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="Kontoen kan ikke slettes - den er stadig i brug"
+            )
+    except sqlite3.Error as e:
+        logger.error(f"Database error deleting account: {e}")
+        raise HTTPException(status_code=500, detail="Der opstod en fejl ved sletning af kontoen")
+    return RedirectResponse(url="/budget/accounts", status_code=303)
 
 
 # =============================================================================
