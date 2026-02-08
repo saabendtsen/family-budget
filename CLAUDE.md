@@ -41,7 +41,7 @@ SQLite database i `data/budget.db` med tabeller:
 - `password_reset_tokens` - Tokens til password reset
 
 ## Sikkerhed
-- Passwords hashes med PBKDF2 (100.000 iterationer)
+- Passwords hashes med PBKDF2 (600.000 iterationer - OWASP 2023 standard)
 - Session tokens hashes med SHA-256
 - Cookies: httponly, secure, samesite=lax
 - Rate limiting: 5 login forsøg per 5 minutter
@@ -116,6 +116,56 @@ SMTP_USER=din@email.dk
 SMTP_PASS=app-password
 SMTP_FROM=Budget <din@email.dk>
 ```
+
+## Architecture Decisions
+
+Key technical decisions and their rationale. Update the relevant entry here when changing a fundamental decision.
+
+**Password Hashing**: PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP 2023). Chose over bcrypt/Argon2 to avoid C extension dependencies — stdlib `hashlib` works everywhere. ~200ms per hash is acceptable for login. See `def hash_password` in `src/database.py`.
+
+**Authentication**: Server-side sessions (file-based `data/sessions.json`), not JWT. SSR app doesn't need stateless tokens. Sessions allow instant revocation on logout. SHA-256 hashed tokens, httponly/secure/samesite cookies. See `def hash_token`, `def load_sessions` in `src/api.py`.
+
+**Database**: SQLite embedded database (`data/budget.db`). No separate server needed. Sufficient for <100 concurrent users. Easy backup (copy single file). Consider PostgreSQL migration only if horizontal scaling needed. See `def get_connection` in `src/database.py`.
+
+**Architecture**: Single-file routes (`src/api.py`, ~1,250 lines) + single-file database (`src/database.py`, ~1,000 lines). Avoids circular imports and keeps related code together. Consider splitting when routes exceed ~100 or distinct feature domains emerge.
+
+**Frontend**: Jinja2 SSR templates + TailwindCSS CDN. No JS build step needed. Template inheritance via `base.html`. Minimal JavaScript for modals and form interactions. CDN adds ~100KB but eliminates Node.js dependency entirely.
+
+**Tailwind CDN**: Uses CDN instead of build process. Trades ~90KB extra CSS for zero build configuration. Custom primary color (`#10b981` green) configured inline in `base.html`. Always include `dark:` variants.
+
+**Demo Mode**: Hardcoded data constants in `src/database.py` (search for `DEMO_INCOME` and `DEMO_EXPENSES`). No database writes. Special cookie value `"demo_mode_session"`. Consistent experience for all visitors. See `def get_demo_income`, `def get_demo_expenses` in `src/database.py`.
+
+## Agent Navigation Hints
+
+Use these search patterns instead of reading entire files:
+
+```bash
+# Find all routes
+grep -n "@app\." src/api.py
+
+# Find all database functions
+grep -n "def " src/database.py
+
+# Find all templates
+ls templates/
+
+# Find all test classes
+grep -n "class Test" tests/*.py e2e/*.py
+
+# Find a specific route handler
+grep -n "async def expenses" src/api.py
+```
+
+**Key conventions**:
+- All UI text is in Danish
+- Amounts use Danish formatting: `25.000,50 kr.` — see `def parse_danish_amount` and `def format_currency` in `src/api.py`
+- All user data queries include `user_id` in WHERE clause
+- POST handlers redirect with 303 (POST-redirect-GET pattern)
+- Frequency system: `monthly`, `quarterly`, `semi-annual`, `yearly` — all converted to monthly via `monthly_amount` property
+
+**Documentation**:
+- `PATTERNS.md` — coding patterns and conventions (frontend, backend, security, database, testing)
+- `docs/guides/adding-new-route.md` — step-by-step guide for new routes
 
 ## Næste Steps
 - [ ] Merge feature branches når brugere er færdige med at teste
