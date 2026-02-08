@@ -167,6 +167,12 @@ grep -n "async def expenses" src/api.py
 - `PATTERNS.md` — coding patterns and conventions (frontend, backend, security, database, testing)
 - `docs/guides/adding-new-route.md` — step-by-step guide for new routes
 
+## Deployment Gotchas
+- **Deploy script:** `scripts/deploy.sh` kører `git reset --hard origin/master` — commit ALDRIG direkte til master. Brug altid branch → PR → merge workflow.
+- **Migrationer:** Kør altid migrations efter merge af PRs med database-ændringer. Migrationer kører IKKE automatisk.
+- **Dockerfile-referencer:** Før rebuild, verificér at alle filer refereret i Dockerfile (fx `VERSION`) stadig eksisterer i current branch.
+- **Volume mounts:** Verificér at data directory mount points matcher produktions-konfiguration før genstart af containers.
+
 ## Næste Steps
 - [ ] Merge feature branches når brugere er færdige med at teste
 - [ ] Opsæt SMTP credentials for password reset
