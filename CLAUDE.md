@@ -135,6 +135,15 @@ Key technical decisions and their rationale. Update the relevant entry here when
 
 **Demo Mode**: Hardcoded data constants in `src/database.py` (search for `DEMO_INCOME` and `DEMO_EXPENSES`). No database writes. Special cookie value `"demo_mode_session"`. Consistent experience for all visitors. See `def get_demo_income`, `def get_demo_expenses` in `src/database.py`.
 
+## Design Guide
+
+Dette projekt fungerer som reference implementation for et genbrugeligt design system til simple web apps.
+
+**Design guide:** `docs/DESIGN_GUIDE.md` - Komplet guide til TailwindCSS patterns, komponenter, og farvepalette
+**Central kopi:** `~/docs/DESIGN_GUIDE.md` (tilgængelig på tværs af projekter)
+
+Brug denne guide når du bygger nye apps der skal matche family-budget's visuelle identitet.
+
 ## Agent Navigation Hints
 
 Use these search patterns instead of reading entire files:
