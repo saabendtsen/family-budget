@@ -714,6 +714,23 @@ class TestFeedback:
         assert response.status_code == 200
         assert "/budget/feedback" in response.text
 
+    def test_help_page_shows_donation_section(self, authenticated_client):
+        """Help page should show donation buttons for authenticated users."""
+        response = authenticated_client.get("/budget/help")
+        assert response.status_code == 200
+        assert "Støt projektet" in response.text
+        assert "buy.stripe.com" in response.text
+        assert "10 kr." in response.text
+        assert "25 kr." in response.text
+        assert "50 kr." in response.text
+
+    def test_help_page_hides_donation_in_demo_mode(self, client):
+        """Help page should not show donation buttons in demo mode."""
+        client.get("/budget/demo")
+        response = client.get("/budget/help")
+        assert response.status_code == 200
+        assert "Støt projektet" not in response.text
+
 
 class TestRateLimiting:
     """Tests for rate limiting middleware."""

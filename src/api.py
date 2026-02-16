@@ -97,6 +97,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 # Load environment
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+# Stripe donation payment links (override with env vars for production)
+DONATION_LINKS = {
+    10: os.getenv("STRIPE_DONATE_10", "https://buy.stripe.com/test_28E14hdiw6eb5Z70Jl9IQ00"),
+    25: os.getenv("STRIPE_DONATE_25", "https://buy.stripe.com/test_aFa4gt3HW0TR0ENdw79IQ01"),
+    50: os.getenv("STRIPE_DONATE_50", "https://buy.stripe.com/test_5kQ6oB5Q40TRevDfEf9IQ02"),
+}
+
 
 # Session management (file-based for persistence)
 # Sessions map hashed tokens to user_ids
@@ -1048,9 +1055,14 @@ async def help_page(request: Request):
     if not check_auth(request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
+    demo_mode = is_demo_mode(request)
     return templates.TemplateResponse(
         "help.html",
-        {"request": request, "demo_mode": is_demo_mode(request)}
+        {
+            "request": request,
+            "demo_mode": demo_mode,
+            "donation_links": DONATION_LINKS if not demo_mode else {},
+        }
     )
 
 
