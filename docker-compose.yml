@@ -18,3 +18,7 @@ services:
       - SMTP_HOST=172.17.0.1
       - SMTP_PORT=25
       - SMTP_FROM=noreply@wibholmsolutions.com
+      # Stripe donation links
+      - STRIPE_DONATE_10=${STRIPE_DONATE_10}
+      - STRIPE_DONATE_25=${STRIPE_DONATE_25}
+      - STRIPE_DONATE_50=${STRIPE_DONATE_50}
