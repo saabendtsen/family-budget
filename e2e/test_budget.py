@@ -23,6 +23,54 @@ class TestDashboard:
         """Dashboard should have logout button."""
         expect(authenticated_page.locator('[data-lucide="log-out"]')).to_be_visible()
 
+    def test_dashboard_sections_are_draggable(self, authenticated_page: Page):
+        """Dashboard should have sortable sections container with draggable children."""
+        container = authenticated_page.locator('#sortable-sections')
+        expect(container).to_be_visible()
+
+        sections = container.locator('[data-section-id]')
+        assert sections.count() >= 2  # At least expenses-breakdown and income-breakdown
+
+    def test_dashboard_section_order_persists(self, authenticated_page: Page, base_url: str):
+        """Saved section order in localStorage should be restored on reload."""
+        custom_order = '["category-chart","income-breakdown","transfer-summary","expenses-breakdown"]'
+        authenticated_page.evaluate(
+            f"localStorage.setItem('dashboardSectionOrder', '{custom_order}')"
+        )
+
+        authenticated_page.goto(f"{base_url}/budget/")
+
+        container = authenticated_page.locator('#sortable-sections')
+        sections = container.locator('[data-section-id]')
+        first_section_id = sections.first.get_attribute('data-section-id')
+        assert first_section_id == 'category-chart'
+
+    def test_dashboard_section_reorder_saves_to_localstorage(self, authenticated_page: Page, base_url: str):
+        """Dragging a section should save the new order to localStorage."""
+        # Clear any saved order
+        authenticated_page.evaluate("localStorage.removeItem('dashboardSectionOrder')")
+        authenticated_page.goto(f"{base_url}/budget/")
+
+        # Get the first and last section drag handles
+        container = authenticated_page.locator('#sortable-sections')
+        sections = container.locator('[data-section-id]')
+        count = sections.count()
+
+        if count >= 2:
+            first_handle = sections.nth(0).locator('.drag-handle').first
+            last_section = sections.nth(count - 1)
+
+            # Drag first section to last position
+            first_handle.drag_to(last_section)
+
+            # Check localStorage was updated
+            stored = authenticated_page.evaluate("localStorage.getItem('dashboardSectionOrder')")
+            assert stored is not None
+            import json
+            order = json.loads(stored)
+            assert isinstance(order, list)
+            assert len(order) >= 2
+
 
 class TestExpenses:
     """Tests for expense management."""
