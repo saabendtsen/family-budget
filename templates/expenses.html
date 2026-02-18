@@ -193,16 +193,46 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Konto <span class="text-gray-400 font-normal">(valgfri)</span></label>
-                <select
-                    name="account"
-                    id="expense-account"
-                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                    <option value="">-- Ingen --</option>
-                    {% for acc in accounts %}
-                    <option value="{{ acc.name }}">{{ acc.name }}</option>
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="account" id="expense-account" value="">
+                <div id="account-dropdown" class="relative">
+                    <button type="button" id="account-toggle"
+                        onclick="toggleAccountDropdown()"
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left flex items-center justify-between"
+                    >
+                        <span id="account-display" class="text-gray-400">Ingen konto</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+                    </button>
+                    <div id="account-options" class="hidden absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        <div class="py-1">
+                            <button type="button" onclick="selectAccount('', 'Ingen konto')" class="w-full px-4 py-2.5 text-left text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                Ingen konto
+                            </button>
+                            {% for acc in accounts %}
+                            <button type="button" onclick="selectAccount('{{ acc.name }}', '{{ acc.name }}')" class="account-option w-full px-4 py-2.5 text-left text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                {{ acc.name }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                        <div class="border-t border-gray-200 dark:border-gray-600">
+                            <div id="add-account-btn" onclick="showNewAccountInput()" class="w-full px-4 py-2.5 text-left text-primary hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer flex items-center gap-2 transition-colors">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                Opret ny konto
+                            </div>
+                            <div id="add-account-form" class="hidden px-3 py-2">
+                                <div class="flex gap-2">
+                                    <input type="text" id="new-account-name" placeholder="Kontonavn"
+                                        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                    >
+                                    <button type="button" onclick="createAccount()" id="create-account-btn"
+                                        class="px-3 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                        Gem
+                                    </button>
+                                </div>
+                                <p id="new-account-error" class="hidden text-red-500 text-xs mt-1"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div>
@@ -338,13 +368,108 @@
         lucide.createIcons();
     }
 
+    // Account dropdown functions
+    const accountToggle = document.getElementById('account-toggle');
+    const accountOptions = document.getElementById('account-options');
+    const accountDisplay = document.getElementById('account-display');
+    const accountInput = document.getElementById('expense-account');
+
+    function toggleAccountDropdown() {
+        accountOptions.classList.toggle('hidden');
+        if (!accountOptions.classList.contains('hidden')) {
+            lucide.createIcons();
+        }
+    }
+
+    function closeAccountDropdown() {
+        accountOptions.classList.add('hidden');
+        document.getElementById('add-account-form').classList.add('hidden');
+        document.getElementById('add-account-btn').classList.remove('hidden');
+        document.getElementById('new-account-error').classList.add('hidden');
+        document.getElementById('new-account-name').value = '';
+    }
+
+    function selectAccount(value, label) {
+        accountInput.value = value;
+        accountDisplay.textContent = label;
+        accountDisplay.className = value ? 'text-gray-900 dark:text-white' : 'text-gray-400';
+        closeAccountDropdown();
+    }
+
+    function showNewAccountInput() {
+        document.getElementById('add-account-btn').classList.add('hidden');
+        document.getElementById('add-account-form').classList.remove('hidden');
+        document.getElementById('new-account-name').focus();
+    }
+
+    async function createAccount() {
+        const nameInput = document.getElementById('new-account-name');
+        const errorEl = document.getElementById('new-account-error');
+        const name = nameInput.value.trim();
+
+        if (!name) {
+            errorEl.textContent = 'Indtast et kontonavn';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        const btn = document.getElementById('create-account-btn');
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        try {
+            const formData = new FormData();
+            formData.append('name', name);
+            const resp = await fetch('/budget/accounts/add-json', { method: 'POST', body: formData });
+            const data = await resp.json();
+
+            if (data.success) {
+                // Add option to dropdown list (before the separator)
+                const optionsContainer = accountOptions.querySelector('.py-1');
+                const newBtn = document.createElement('button');
+                newBtn.type = 'button';
+                newBtn.className = 'account-option w-full px-4 py-2.5 text-left text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
+                newBtn.textContent = data.name;
+                newBtn.onclick = () => selectAccount(data.name, data.name);
+                optionsContainer.appendChild(newBtn);
+
+                // Select the new account
+                selectAccount(data.name, data.name);
+            } else {
+                errorEl.textContent = data.error;
+                errorEl.classList.remove('hidden');
+            }
+        } catch (e) {
+            errorEl.textContent = 'Noget gik galt';
+            errorEl.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Gem';
+        }
+    }
+
+    // Handle Enter in new account input
+    document.getElementById('new-account-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            createAccount();
+        }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('account-dropdown').contains(e.target)) {
+            closeAccountDropdown();
+        }
+    });
+
     function openAddModal(category = null) {
         form.action = '/budget/expenses/add';
         modalTitle.textContent = 'Tilføj udgift';
         submitText.textContent = 'Tilføj';
         document.getElementById('expense-name').value = '';
         document.getElementById('expense-category').value = category || '{{ categories[0].name if categories else "" }}';
-        document.getElementById('expense-account').value = '';
+        selectAccount('', 'Ingen konto');
         document.getElementById('expense-amount').value = '';
         document.querySelector('input[name="frequency"][value="monthly"]').checked = true;
         modal.classList.remove('hidden');
@@ -357,7 +482,11 @@
         submitText.textContent = 'Gem';
         document.getElementById('expense-name').value = name;
         document.getElementById('expense-category').value = category;
-        document.getElementById('expense-account').value = account || '';
+        if (account) {
+            selectAccount(account, account);
+        } else {
+            selectAccount('', 'Ingen konto');
+        }
         document.getElementById('expense-amount').value = amount;
         document.querySelector('input[name="frequency"][value="' + frequency + '"]').checked = true;
         modal.classList.remove('hidden');
@@ -366,6 +495,7 @@
 
     function closeModal() {
         modal.classList.add('hidden');
+        closeAccountDropdown();
     }
 
     // Close modal on backdrop click

@@ -659,6 +659,72 @@ class TestCategoryEndpoints:
         assert response.status_code == 303
 
 
+class TestAccountEndpoints:
+    """Tests for account management endpoints."""
+
+    def test_add_account_json_success(self, authenticated_client):
+        """POST to add-json should create account and return JSON."""
+        response = authenticated_client.post(
+            "/budget/accounts/add-json",
+            data={"name": "Nordea"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["name"] == "Nordea"
+
+    def test_add_account_json_duplicate(self, authenticated_client):
+        """POST to add-json with duplicate name should return error."""
+        authenticated_client.post(
+            "/budget/accounts/add-json",
+            data={"name": "Nordea"},
+        )
+        response = authenticated_client.post(
+            "/budget/accounts/add-json",
+            data={"name": "Nordea"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert data["success"] is False
+        assert "findes allerede" in data["error"]
+
+    def test_add_account_json_empty_name(self, authenticated_client):
+        """POST to add-json with empty name should return error."""
+        response = authenticated_client.post(
+            "/budget/accounts/add-json",
+            data={"name": "   "},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert data["success"] is False
+
+    def test_add_account_json_requires_auth(self, client):
+        """POST to add-json without auth should return 401."""
+        response = client.post(
+            "/budget/accounts/add-json",
+            data={"name": "Test"},
+        )
+
+        assert response.status_code in (401, 303)
+
+    def test_add_account_json_demo_mode(self, client):
+        """POST to add-json in demo mode should be rejected."""
+        # Enter demo mode (sets demo cookie)
+        client.get("/budget/demo")
+        client.cookies.set("budget_session", "demo")
+        response = client.post(
+            "/budget/accounts/add-json",
+            data={"name": "Test"},
+        )
+
+        # Demo mode: check_auth passes but is_demo_mode blocks with 403
+        assert response.status_code == 403
+        assert response.json()["success"] is False
+
+
 class TestHelpers:
     """Tests for helper functions."""
 
