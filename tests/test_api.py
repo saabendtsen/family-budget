@@ -386,6 +386,35 @@ class TestDashboard:
         # Demo mode indicator or demo data should be present
         assert "demo" in response.text.lower() or "Person 1" in response.text
 
+    def test_dashboard_has_sortable_sections(self, authenticated_client):
+        """Dashboard should have sortable sections container with all section IDs."""
+        response = authenticated_client.get("/budget/")
+
+        assert 'id="sortable-sections"' in response.text
+        assert 'data-section-id="expenses-breakdown"' in response.text
+        assert 'data-section-id="transfer-summary"' in response.text
+        assert 'data-section-id="income-breakdown"' in response.text
+        assert 'data-section-id="category-chart"' in response.text
+
+    def test_dashboard_has_drag_handles(self, authenticated_client):
+        """Dashboard should have drag handles for sortable sections."""
+        response = authenticated_client.get("/budget/")
+
+        assert 'drag-handle' in response.text
+
+    def test_demo_dashboard_has_sortable_sections(self, client):
+        """Demo mode dashboard should also have sortable sections."""
+        # Set demo cookie directly (secure=True prevents TestClient from persisting it via redirect)
+        client.cookies.set("budget_session", "demo")
+
+        response = client.get("/budget/")
+
+        assert response.status_code == 200
+        assert 'id="sortable-sections"' in response.text
+        assert 'data-section-id="expenses-breakdown"' in response.text
+        assert 'data-section-id="income-breakdown"' in response.text
+        assert 'data-section-id="category-chart"' in response.text
+
 
 class TestIncomeEndpoints:
     """Tests for income management endpoints."""
