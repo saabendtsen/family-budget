@@ -718,7 +718,7 @@ class TestFeedback:
         """Help page should show donation buttons for authenticated users."""
         response = authenticated_client.get("/budget/help")
         assert response.status_code == 200
-        assert "Støt projektet" in response.text
+        assert "Køb mig en kaffe" in response.text
         assert "buy.stripe.com" in response.text
         assert "10 kr." in response.text
         assert "25 kr." in response.text
