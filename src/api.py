@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 import httpx
 
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -995,6 +995,29 @@ async def add_account(
             detail=f"Kontoen '{name}' findes allerede"
         )
     return RedirectResponse(url="/budget/accounts", status_code=303)
+
+
+@app.post("/budget/accounts/add-json")
+async def add_account_json(request: Request, name: str = Form(...)):
+    """Add a new account and return JSON (for inline creation from expense form)."""
+    if not check_auth(request):
+        return JSONResponse({"success": False, "error": "Ikke logget ind"}, status_code=401)
+    if is_demo_mode(request):
+        return JSONResponse({"success": False, "error": "Ikke tilgængelig i demo"}, status_code=403)
+
+    user_id = get_user_id(request)
+    name = name.strip()
+    if not name:
+        return JSONResponse({"success": False, "error": "Navn er påkrævet"}, status_code=400)
+
+    try:
+        db.add_account(user_id, name)
+    except sqlite3.IntegrityError:
+        return JSONResponse(
+            {"success": False, "error": f"Kontoen '{name}' findes allerede"},
+            status_code=400,
+        )
+    return JSONResponse({"success": True, "name": name})
 
 
 @app.post("/budget/accounts/{account_id}/edit")
