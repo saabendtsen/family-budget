@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set show_nav = true %}
-{% set active_page = 'help' %}
+{% set active_page = 'om' %}
 
 {% block title %}Feedback - Budget{% endblock %}
 
@@ -8,7 +8,7 @@
 <div class="max-w-lg mx-auto px-4 py-6">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Send feedback</h1>
-        <a href="/budget/help" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+        <a href="/budget/om" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             <i data-lucide="x" class="w-6 h-6"></i>
         </a>
     </div>
@@ -105,11 +105,11 @@
     </div>
     {% else %}
     <a
-        href="/budget/help"
+        href="/budget/om"
         class="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-4 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
     >
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
-        Tilbage til hjælp
+        Tilbage til om
     </a>
     {% endif %}
 </div>

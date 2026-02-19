@@ -325,11 +325,18 @@ class TestProtectedEndpoints:
 
         assert response.status_code == 303
 
-    def test_help_requires_auth(self, client):
-        """Help page should redirect to login without auth."""
-        response = client.get("/budget/help", follow_redirects=False)
+    def test_about_requires_auth(self, client):
+        """About page should redirect to login without auth."""
+        response = client.get("/budget/om", follow_redirects=False)
 
         assert response.status_code == 303
+
+    def test_help_redirects_to_about(self, client):
+        """Old help URL should redirect to about page."""
+        response = client.get("/budget/help", follow_redirects=False)
+
+        assert response.status_code == 301
+        assert response.headers["location"] == "/budget/om"
 
 
 class TestPrivacyPolicy:
@@ -803,15 +810,15 @@ class TestFeedback:
         assert response.status_code == 200
         assert "Tak for din feedback" in response.text
 
-    def test_help_page_has_feedback_link(self, authenticated_client):
-        """Help page should have a link to feedback."""
-        response = authenticated_client.get("/budget/help")
+    def test_about_page_has_feedback_link(self, authenticated_client):
+        """About page should have a link to feedback."""
+        response = authenticated_client.get("/budget/om")
         assert response.status_code == 200
         assert "/budget/feedback" in response.text
 
-    def test_help_page_shows_donation_section(self, authenticated_client):
-        """Help page should show donation buttons for authenticated users."""
-        response = authenticated_client.get("/budget/help")
+    def test_about_page_shows_donation_section(self, authenticated_client):
+        """About page should show donation buttons for authenticated users."""
+        response = authenticated_client.get("/budget/om")
         assert response.status_code == 200
         assert "Køb mig en kaffe" in response.text
         assert "buy.stripe.com" in response.text
@@ -819,12 +826,18 @@ class TestFeedback:
         assert "25 kr." in response.text
         assert "50 kr." in response.text
 
-    def test_help_page_hides_donation_in_demo_mode(self, client):
-        """Help page should not show donation buttons in demo mode."""
+    def test_about_page_hides_donation_in_demo_mode(self, client):
+        """About page should not show donation buttons in demo mode."""
         client.get("/budget/demo")
-        response = client.get("/budget/help")
+        response = client.get("/budget/om")
         assert response.status_code == 200
         assert "Støt projektet" not in response.text
+
+    def test_about_page_shows_self_hosting_info(self, authenticated_client):
+        """About page should show self-hosting info box."""
+        response = authenticated_client.get("/budget/om")
+        assert response.status_code == 200
+        assert "hjemmeserver" in response.text
 
 
 class TestRateLimiting:

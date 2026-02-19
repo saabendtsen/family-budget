@@ -19,7 +19,7 @@ Simpelt budget-overblik webapp bygget med FastAPI og Jinja2 templates.
 | `/budget/income` | Administrer indkomst (dynamiske kilder) |
 | `/budget/categories` | Administrer kategorier |
 | `/budget/settings` | Kontoindstillinger |
-| `/budget/help` | Brugervejledning |
+| `/budget/om` | Om-side (brugervejledning + self-hosting info) |
 | `/budget/forgot-password` | Glemt password |
 | `/budget/reset-password/<token>` | Nulstil password |
 | `/budget/logout` | Log ud |

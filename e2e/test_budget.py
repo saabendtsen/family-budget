@@ -170,11 +170,11 @@ class TestNavigation:
 
         expect(authenticated_page).to_have_url(f"{base_url}/budget/categories")
 
-    def test_navigate_to_help(self, authenticated_page: Page, base_url: str):
-        """Should be able to navigate to help page."""
-        authenticated_page.goto(f"{base_url}/budget/help")
+    def test_navigate_to_about(self, authenticated_page: Page, base_url: str):
+        """Should be able to navigate to about page."""
+        authenticated_page.goto(f"{base_url}/budget/om")
 
-        expect(authenticated_page).to_have_url(f"{base_url}/budget/help")
+        expect(authenticated_page).to_have_url(f"{base_url}/budget/om")
 
 
 class TestProtectedRoutes:

@@ -1,19 +1,28 @@
 {% extends "base.html" %}
 {% set show_nav = true %}
-{% set active_page = 'help' %}
+{% set active_page = 'om' %}
 
-{% block title %}Hjælp - Budget{% endblock %}
+{% block title %}Om - Budget{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto px-4 py-6">
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Sådan bruger du Budget</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Om Budget</h1>
         <a href="/budget/" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             <i data-lucide="x" class="w-6 h-6"></i>
         </a>
     </div>
 
     <div class="space-y-6">
+        <!-- Self-hosting info -->
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm text-blue-700 dark:text-blue-300 flex items-start gap-3">
+            <i data-lucide="info" class="w-5 h-5 mt-0.5 flex-shrink-0"></i>
+            <div>
+                <p class="font-medium mb-1">Denne app kører på en hjemmeserver</p>
+                <p>Budget er self-hosted og kører ikke i skyen. Det betyder, at der kan forekomme kortere nedetider ved f.eks. internet- eller strømafbrydelser. Prøv igen lidt senere, hvis siden ikke er tilgængelig.</p>
+            </div>
+        </div>
+
         <!-- Kom i gang -->
         <section class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
