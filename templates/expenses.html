@@ -192,6 +192,53 @@
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Beløb</label>
+                <div class="relative">
+                    <input
+                        type="text"
+                        name="amount"
+                        id="expense-amount"
+                        placeholder="0,00"
+                        pattern="[0-9]{1,6}(,?[0-9]{1,2})?"
+                        inputmode="decimal"
+                        class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        required
+                    >
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frekvens</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <label>
+                        <input type="radio" name="frequency" value="monthly" class="sr-only peer" checked>
+                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
+                            Månedlig
+                        </div>
+                    </label>
+                    <label>
+                        <input type="radio" name="frequency" value="quarterly" class="sr-only peer">
+                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
+                            Kvartalsvis
+                        </div>
+                    </label>
+                    <label>
+                        <input type="radio" name="frequency" value="semi-annual" class="sr-only peer">
+                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
+                            Halvårlig
+                        </div>
+                    </label>
+                    <label>
+                        <input type="radio" name="frequency" value="yearly" class="sr-only peer">
+                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
+                            Årlig
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div>
                 <button type="button" id="advanced-toggle" onclick="toggleAdvanced()"
                     class="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
                     <i data-lucide="chevron-right" id="advanced-chevron" class="w-4 h-4 transition-transform duration-200"></i>
@@ -239,53 +286,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Beløb</label>
-                <div class="relative">
-                    <input
-                        type="text"
-                        name="amount"
-                        id="expense-amount"
-                        placeholder="0,00"
-                        pattern="[0-9]{1,6}(,?[0-9]{1,2})?"
-                        inputmode="decimal"
-                        class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        required
-                    >
-                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">kr</span>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frekvens</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <label>
-                        <input type="radio" name="frequency" value="monthly" class="sr-only peer" checked>
-                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
-                            Månedlig
-                        </div>
-                    </label>
-                    <label>
-                        <input type="radio" name="frequency" value="quarterly" class="sr-only peer">
-                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
-                            Kvartalsvis
-                        </div>
-                    </label>
-                    <label>
-                        <input type="radio" name="frequency" value="semi-annual" class="sr-only peer">
-                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
-                            Halvårlig
-                        </div>
-                    </label>
-                    <label>
-                        <input type="radio" name="frequency" value="yearly" class="sr-only peer">
-                        <div class="text-center py-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer peer-checked:border-primary peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30 peer-checked:text-primary transition-colors text-gray-700 dark:text-gray-300">
-                            Årlig
-                        </div>
-                    </label>
                 </div>
             </div>
 
