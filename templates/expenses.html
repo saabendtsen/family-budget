@@ -192,43 +192,50 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Konto <span class="text-gray-400 font-normal">(valgfri)</span></label>
-                <input type="hidden" name="account" id="expense-account" value="">
-                <div id="account-dropdown" class="relative">
-                    <button type="button" id="account-toggle"
-                        onclick="toggleAccountDropdown()"
-                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left flex items-center justify-between"
-                    >
-                        <span id="account-display" class="text-gray-400">Ingen konto</span>
-                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
-                    </button>
-                    <div id="account-options" class="hidden absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                        <div class="py-1">
-                            <button type="button" onclick="selectAccount('', 'Ingen konto')" class="w-full px-4 py-2.5 text-left text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                                Ingen konto
-                            </button>
-                            {% for acc in accounts %}
-                            <button type="button" onclick="selectAccount('{{ acc.name }}', '{{ acc.name }}')" class="account-option w-full px-4 py-2.5 text-left text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                                {{ acc.name }}
-                            </button>
-                            {% endfor %}
-                        </div>
-                        <div class="border-t border-gray-200 dark:border-gray-600">
-                            <div id="add-account-btn" onclick="showNewAccountInput()" class="w-full px-4 py-2.5 text-left text-primary hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer flex items-center gap-2 transition-colors">
-                                <i data-lucide="plus" class="w-4 h-4"></i>
-                                Opret ny konto
+                <button type="button" id="advanced-toggle" onclick="toggleAdvanced()"
+                    class="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    <i data-lucide="chevron-right" id="advanced-chevron" class="w-4 h-4 transition-transform duration-200"></i>
+                    Avanceret
+                </button>
+                <div id="advanced-section" class="hidden mt-3">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Konto <span class="text-gray-400 font-normal">(valgfri)</span></label>
+                    <input type="hidden" name="account" id="expense-account" value="">
+                    <div id="account-dropdown" class="relative">
+                        <button type="button" id="account-toggle"
+                            onclick="toggleAccountDropdown()"
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left flex items-center justify-between"
+                        >
+                            <span id="account-display" class="text-gray-400">Ingen konto</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+                        </button>
+                        <div id="account-options" class="hidden absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            <div class="py-1">
+                                <button type="button" onclick="selectAccount('', 'Ingen konto')" class="w-full px-4 py-2.5 text-left text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                    Ingen konto
+                                </button>
+                                {% for acc in accounts %}
+                                <button type="button" onclick="selectAccount('{{ acc.name }}', '{{ acc.name }}')" class="account-option w-full px-4 py-2.5 text-left text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                    {{ acc.name }}
+                                </button>
+                                {% endfor %}
                             </div>
-                            <div id="add-account-form" class="hidden px-3 py-2">
-                                <div class="flex gap-2">
-                                    <input type="text" id="new-account-name" placeholder="Kontonavn"
-                                        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                                    >
-                                    <button type="button" onclick="createAccount()" id="create-account-btn"
-                                        class="px-3 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600 transition-colors whitespace-nowrap">
-                                        Opret
-                                    </button>
+                            <div class="border-t border-gray-200 dark:border-gray-600">
+                                <div id="add-account-btn" onclick="showNewAccountInput()" class="w-full px-4 py-2.5 text-left text-primary hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer flex items-center gap-2 transition-colors">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    Opret ny konto
                                 </div>
-                                <p id="new-account-error" class="hidden text-red-500 text-xs mt-1"></p>
+                                <div id="add-account-form" class="hidden px-3 py-2">
+                                    <div class="flex gap-2">
+                                        <input type="text" id="new-account-name" placeholder="Kontonavn"
+                                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                        >
+                                        <button type="button" onclick="createAccount()" id="create-account-btn"
+                                            class="px-3 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                            Opret
+                                        </button>
+                                    </div>
+                                    <p id="new-account-error" class="hidden text-red-500 text-xs mt-1"></p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -463,6 +470,25 @@
         }
     });
 
+    function toggleAdvanced() {
+        const section = document.getElementById('advanced-section');
+        const chevron = document.getElementById('advanced-chevron');
+        section.classList.toggle('hidden');
+        chevron.style.transform = section.classList.contains('hidden') ? '' : 'rotate(90deg)';
+    }
+
+    function setAdvancedOpen(open) {
+        const section = document.getElementById('advanced-section');
+        const chevron = document.getElementById('advanced-chevron');
+        if (open) {
+            section.classList.remove('hidden');
+            chevron.style.transform = 'rotate(90deg)';
+        } else {
+            section.classList.add('hidden');
+            chevron.style.transform = '';
+        }
+    }
+
     function openAddModal(category = null) {
         form.action = '/budget/expenses/add';
         modalTitle.textContent = 'Tilføj udgift';
@@ -472,6 +498,7 @@
         selectAccount('', 'Ingen konto');
         document.getElementById('expense-amount').value = '';
         document.querySelector('input[name="frequency"][value="monthly"]').checked = true;
+        setAdvancedOpen(false);
         modal.classList.remove('hidden');
         lucide.createIcons();
     }
@@ -484,8 +511,10 @@
         document.getElementById('expense-category').value = category;
         if (account) {
             selectAccount(account, account);
+            setAdvancedOpen(true);
         } else {
             selectAccount('', 'Ingen konto');
+            setAdvancedOpen(false);
         }
         document.getElementById('expense-amount').value = amount;
         document.querySelector('input[name="frequency"][value="' + frequency + '"]').checked = true;
