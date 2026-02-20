@@ -145,9 +145,9 @@ class TestEditExpenseFrequency:
         authenticated_page.click('button:has-text("Tilføj")')
         authenticated_page.wait_for_url(f"{base_url}/budget/expenses")
 
-        # Find and click edit button for this expense (look for pencil icon near expense name)
+        # Find and click edit button for this expense
         expense_card = authenticated_page.locator(f'text="{expense_name}"').locator('xpath=ancestor::div[contains(@class, "px-4")]')
-        expense_card.locator('[data-lucide="pencil"]').click()
+        expense_card.get_by_role("button", name="Rediger", exact=True).click()
         authenticated_page.wait_for_selector("#modal")
 
         # Verify quarterly is still selected
@@ -171,7 +171,7 @@ class TestEditExpenseFrequency:
 
         # Edit and change to semi-annual
         expense_card = authenticated_page.locator(f'text="{expense_name}"').locator('xpath=ancestor::div[contains(@class, "px-4")]')
-        expense_card.locator('[data-lucide="pencil"]').click()
+        expense_card.get_by_role("button", name="Rediger", exact=True).click()
         authenticated_page.wait_for_selector("#modal")
 
         authenticated_page.locator('#modal').locator('text=Halvårlig').click()
@@ -180,7 +180,7 @@ class TestEditExpenseFrequency:
 
         # Re-open edit to verify frequency changed
         expense_card = authenticated_page.locator(f'text="{expense_name}"').locator('xpath=ancestor::div[contains(@class, "px-4")]')
-        expense_card.locator('[data-lucide="pencil"]').click()
+        expense_card.get_by_role("button", name="Rediger", exact=True).click()
         authenticated_page.wait_for_selector("#modal")
         expect(authenticated_page.locator('input[name="frequency"][value="semi-annual"]')).to_be_checked()
 

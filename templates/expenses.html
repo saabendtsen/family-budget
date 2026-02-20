@@ -4,6 +4,10 @@
 {% block title %}Udgifter - Budget{% endblock %}
 
 {% block content %}
+{% set cat_map = {} %}
+{% for cat in categories %}
+    {% if cat_map.update({cat.name: cat}) %}{% endif %}
+{% endfor %}
 <div class="max-w-md mx-auto px-4 py-6">
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
@@ -35,6 +39,12 @@
         </div>
     </div>
 
+    <!-- Toast notification for updated expenses -->
+    <div id="update-toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[70] bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm max-w-sm">
+        <i data-lucide="check-circle" class="w-5 h-5 flex-shrink-0"></i>
+        <span id="toast-message"></span>
+    </div>
+
     <!-- Expense list grouped by category -->
     {% if expenses_by_category %}
     <!-- Collapse/Expand all button -->
@@ -62,6 +72,15 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="font-bold text-gray-900 dark:text-white">{{ format_currency(category_totals[category]) }}/md</div>
+                    {% if not demo_mode %}
+                    <button
+                        onclick='event.stopPropagation(); openCatEditModal({{ cat_map[category].id }}, {{ category|tojson|e }}, {{ cat_map[category].icon|tojson|e }}, {{ category_usage[category] }})'
+                        class="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        title="Rediger kategori"
+                    >
+                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                    </button>
+                    {% endif %}
                     <button
                         onclick="event.stopPropagation(); openAddModal('{{ category }}')"
                         class="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
@@ -300,6 +319,82 @@
     </div>
 </div>
 
+<!-- Category Edit Modal -->
+<div id="cat-edit-modal" class="fixed inset-0 bg-black/50 flex items-end justify-center z-50 hidden">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl p-6 animate-slide-up">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Rediger kategori</h2>
+            <button onclick="closeCatEditModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <form id="cat-edit-form" method="post" class="space-y-4">
+            <input type="hidden" name="next" value="/budget/expenses">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Navn</label>
+                <input
+                    type="text"
+                    name="name"
+                    id="cat-edit-name"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                >
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ikon</label>
+                <input type="hidden" name="icon" id="cat-edit-icon" value="folder" required>
+                <button
+                    type="button"
+                    id="cat-icon-picker-trigger"
+                    onclick="openCatIconPicker()"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex items-center justify-between hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                >
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                            <i id="cat-selected-icon-preview" data-lucide="folder" class="w-5 h-5 text-gray-600 dark:text-gray-300"></i>
+                        </div>
+                        <span id="cat-selected-icon-name" class="text-gray-600 dark:text-gray-300">folder</span>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+                </button>
+            </div>
+
+            <!-- Warning shown when editing a category that's in use -->
+            <div id="cat-edit-warning" class="hidden bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+                <span id="cat-edit-warning-text"></span>
+            </div>
+
+            <button
+                type="submit"
+                class="w-full bg-primary text-white py-4 rounded-xl font-medium hover:bg-blue-600 active:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            >
+                <i data-lucide="check" class="w-5 h-5"></i>
+                <span>Gem</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Category Icon Picker Modal -->
+<div id="cat-icon-picker-modal" class="fixed inset-0 bg-black/50 flex items-end justify-center z-[60] hidden">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-t-2xl p-6 animate-slide-up max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Vælg ikon</h2>
+            <button onclick="closeCatIconPicker()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 -mx-2 px-2">
+            <div class="grid grid-cols-5 gap-2" id="cat-icon-grid">
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     @keyframes slide-up {
         from { transform: translateY(100%); }
@@ -532,9 +627,138 @@
         if (e.target === modal) closeModal();
     });
 
-    // Close modal on escape
+    // Close modal on escape (with priority: cat icon picker → cat edit → expense modal)
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
+        if (e.key === 'Escape') {
+            const catIconPicker = document.getElementById('cat-icon-picker-modal');
+            const catEdit = document.getElementById('cat-edit-modal');
+            if (catIconPicker && !catIconPicker.classList.contains('hidden')) {
+                closeCatIconPicker();
+            } else if (catEdit && !catEdit.classList.contains('hidden')) {
+                closeCatEditModal();
+            } else {
+                closeModal();
+            }
+        }
     });
+
+    // --- Category inline edit ---
+    const CAT_AVAILABLE_ICONS = [
+        'house', 'home', 'building', 'door-open', 'key',
+        'car', 'bus', 'train', 'plane', 'bike', 'fuel',
+        'zap', 'flame', 'droplet', 'wifi', 'thermometer',
+        'utensils', 'coffee', 'wine', 'shopping-cart', 'apple',
+        'baby', 'users', 'heart', 'gift', 'cake',
+        'piggy-bank', 'wallet', 'credit-card', 'coins', 'banknote',
+        'tv', 'gamepad-2', 'music', 'film', 'headphones',
+        'pill', 'activity', 'stethoscope', 'heart-pulse',
+        'dumbbell', 'bike', 'tent', 'mountain',
+        'graduation-cap', 'book', 'pencil', 'backpack',
+        'phone', 'smartphone', 'mail', 'message-circle',
+        'shield', 'briefcase', 'folder', 'tag', 'star',
+        'gift', 'package', 'tool', 'wrench', 'scissors',
+        'dog', 'cat', 'paw-print', 'flower-2', 'sun',
+        'umbrella', 'cloud', 'calendar', 'clock', 'bell'
+    ];
+
+    const catEditModal = document.getElementById('cat-edit-modal');
+    const catEditForm = document.getElementById('cat-edit-form');
+    const catIconPickerModal = document.getElementById('cat-icon-picker-modal');
+    const catIconGrid = document.getElementById('cat-icon-grid');
+
+    function openCatEditModal(id, name, icon, usage) {
+        catEditForm.action = '/budget/categories/' + id + '/edit';
+        document.getElementById('cat-edit-name').value = name;
+
+        const warning = document.getElementById('cat-edit-warning');
+        if (usage > 0) {
+            document.getElementById('cat-edit-warning-text').textContent =
+                'Denne kategori bruges i ' + usage + ' udgift' + (usage !== 1 ? 'er' : '') + ' \u2013 de opdateres automatisk.';
+            warning.classList.remove('hidden');
+        } else {
+            warning.classList.add('hidden');
+        }
+
+        updateCatSelectedIcon(icon);
+        catEditModal.classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function closeCatEditModal() {
+        catEditModal.classList.add('hidden');
+    }
+
+    function updateCatSelectedIcon(iconName) {
+        document.getElementById('cat-edit-icon').value = iconName;
+        document.getElementById('cat-selected-icon-name').textContent = iconName;
+        const previewEl = document.getElementById('cat-selected-icon-preview');
+        previewEl.setAttribute('data-lucide', iconName);
+        lucide.createIcons();
+
+        document.querySelectorAll('.cat-icon-option').forEach(btn => {
+            if (btn.dataset.icon === iconName) {
+                btn.classList.add('border-primary', 'bg-blue-50', 'dark:bg-blue-900/30');
+            } else {
+                btn.classList.remove('border-primary', 'bg-blue-50', 'dark:bg-blue-900/30');
+            }
+        });
+    }
+
+    function renderCatIconGrid() {
+        catIconGrid.innerHTML = CAT_AVAILABLE_ICONS.map(icon => `
+            <button
+                type="button"
+                onclick="selectCatIcon('${icon}')"
+                class="cat-icon-option aspect-square flex items-center justify-center rounded-xl border-2 border-transparent hover:border-primary hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors p-3"
+                data-icon="${icon}"
+                title="${icon}"
+            >
+                <i data-lucide="${icon}" class="w-6 h-6 text-gray-600 dark:text-gray-300"></i>
+            </button>
+        `).join('');
+        lucide.createIcons();
+    }
+
+    function selectCatIcon(iconName) {
+        updateCatSelectedIcon(iconName);
+        closeCatIconPicker();
+    }
+
+    function openCatIconPicker() {
+        renderCatIconGrid();
+        const currentIcon = document.getElementById('cat-edit-icon').value;
+        updateCatSelectedIcon(currentIcon);
+        catIconPickerModal.classList.remove('hidden');
+    }
+
+    function closeCatIconPicker() {
+        catIconPickerModal.classList.add('hidden');
+    }
+
+    // Close cat modals on backdrop click
+    catEditModal.addEventListener('click', (e) => {
+        if (e.target === catEditModal) closeCatEditModal();
+    });
+    catIconPickerModal.addEventListener('click', (e) => {
+        if (e.target === catIconPickerModal) closeCatIconPicker();
+    });
+
+    // Show toast if expenses were updated after category rename
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const updated = params.get('updated');
+        if (updated) {
+            const count = parseInt(updated, 10);
+            const toast = document.getElementById('update-toast');
+            const msg = document.getElementById('toast-message');
+            msg.textContent = 'Kategori opdateret. ' + count + ' udgift' + (count !== 1 ? 'er' : '') + ' blev også opdateret.';
+            toast.classList.remove('hidden');
+            lucide.createIcons();
+            window.history.replaceState({}, '', window.location.pathname);
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 5000);
+        }
+    })();
 </script>
 {% endblock %}

@@ -707,12 +707,14 @@ async def expenses_page(request: Request):
         category_totals = db.get_demo_category_totals()
         # Use demo user categories (user_id = 0)
         categories = db.get_all_categories(0)
+        category_usage = {cat.name: 0 for cat in categories}
         accounts = []
     else:
         expenses = db.get_all_expenses(user_id)
         expenses_by_category = db.get_expenses_by_category(user_id)
         category_totals = db.get_category_totals(user_id)
         categories = db.get_all_categories(user_id)
+        category_usage = {cat.name: db.get_category_usage_count(cat.name, user_id) for cat in categories}
         accounts = db.get_all_accounts(user_id)
 
     return templates.TemplateResponse(
@@ -723,6 +725,7 @@ async def expenses_page(request: Request):
             "expenses_by_category": expenses_by_category,
             "category_totals": category_totals,
             "categories": categories,
+            "category_usage": category_usage,
             "accounts": accounts,
             "demo_mode": demo,
         }
@@ -893,7 +896,8 @@ async def edit_category(
     request: Request,
     category_id: int,
     name: str = Form(...),
-    icon: str = Form(...)
+    icon: str = Form(...),
+    next: str = Form("")
 ):
     """Edit a category."""
     if not check_auth(request):
@@ -910,7 +914,9 @@ async def edit_category(
             status_code=400,
             detail=f"Kategorien '{name}' findes allerede"
         )
-    url = "/budget/categories"
+    allowed_next = {"/budget/expenses", "/budget/categories"}
+    base_url = next if next in allowed_next else "/budget/categories"
+    url = base_url
     if updated_count > 0:
         url += f"?updated={updated_count}"
     return RedirectResponse(url=url, status_code=303)
