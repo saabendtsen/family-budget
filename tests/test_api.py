@@ -654,6 +654,32 @@ class TestCategoryEndpoints:
 
         assert response.status_code == 303
 
+    def test_edit_category_redirects_to_expenses(self, authenticated_client, db_module):
+        """POST to edit category with next=/budget/expenses should redirect there."""
+        category_id = db_module.add_category(authenticated_client.user_id, "CatA", "folder")
+
+        response = authenticated_client.post(
+            f"/budget/categories/{category_id}/edit",
+            data={"name": "CatB", "icon": "folder", "next": "/budget/expenses"},
+            follow_redirects=False
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"].startswith("/budget/expenses")
+
+    def test_edit_category_rejects_unsafe_next(self, authenticated_client, db_module):
+        """POST to edit category with unknown next URL should fall back to /budget/categories."""
+        category_id = db_module.add_category(authenticated_client.user_id, "CatX", "folder")
+
+        response = authenticated_client.post(
+            f"/budget/categories/{category_id}/edit",
+            data={"name": "CatY", "icon": "folder", "next": "https://evil.com"},
+            follow_redirects=False
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"].startswith("/budget/categories")
+
     def test_delete_category(self, authenticated_client, db_module):
         """POST to delete unused category should remove it."""
         category_id = db_module.add_category(authenticated_client.user_id, "Unused", "icon")
