@@ -325,11 +325,11 @@ class TestProtectedEndpoints:
 
         assert response.status_code == 303
 
-    def test_about_requires_auth(self, client):
-        """About page should redirect to login without auth."""
+    def test_about_accessible_without_auth(self, client):
+        """About page should be accessible without auth."""
         response = client.get("/budget/om", follow_redirects=False)
 
-        assert response.status_code == 303
+        assert response.status_code == 200
 
     def test_help_redirects_to_about(self, client):
         """Old help URL should redirect to about page."""
