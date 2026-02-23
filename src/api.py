@@ -734,6 +734,39 @@ async def expenses_page(request: Request):
 
 VALID_FREQUENCIES = ('monthly', 'quarterly', 'semi-annual', 'yearly')
 
+MONTHS_REQUIRED = {
+    'quarterly': 4,
+    'semi-annual': 2,
+    'yearly': 1,
+}
+
+
+def parse_months(months_str: str | None, frequency: str) -> list[int] | None:
+    """Parse and validate months form field.
+
+    Returns list of month ints, or None if no months specified.
+    Raises HTTPException(400) if validation fails.
+    """
+    if frequency == 'monthly':
+        return None
+
+    if not months_str or not months_str.strip():
+        return None
+
+    try:
+        months = [int(m.strip()) for m in months_str.split(',')]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ugyldige måneder")
+
+    if any(m < 1 or m > 12 for m in months):
+        raise HTTPException(status_code=400, detail="Måneder skal være mellem 1 og 12")
+
+    expected = MONTHS_REQUIRED.get(frequency)
+    if expected and len(months) != expected:
+        raise HTTPException(status_code=400, detail=f"Vælg præcis {expected} måneder for denne frekvens")
+
+    return sorted(months)
+
 
 @app.post("/budget/expenses/add")
 async def add_expense(
@@ -742,7 +775,8 @@ async def add_expense(
     category: str = Form(...),
     amount: str = Form(...),
     frequency: str = Form(...),
-    account: str = Form("")
+    account: str = Form(""),
+    months: str = Form(""),
 ):
     """Add a new expense."""
     if not check_auth(request):
@@ -765,10 +799,12 @@ async def add_expense(
     if amount_float > 1000000:
         raise HTTPException(status_code=400, detail="Beløb er for stort")
 
+    months_list = parse_months(months if months else None, frequency)
+
     user_id = get_user_id(request)
     account_value = account if account else None
     try:
-        db.add_expense(user_id, name, category, amount_float, frequency, account_value)
+        db.add_expense(user_id, name, category, amount_float, frequency, account_value, months=months_list)
     except sqlite3.Error as e:
         logger.error(f"Database error adding expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved tilfoejelse af udgiften")
@@ -800,7 +836,8 @@ async def edit_expense(
     category: str = Form(...),
     amount: str = Form(...),
     frequency: str = Form(...),
-    account: str = Form("")
+    account: str = Form(""),
+    months: str = Form(""),
 ):
     """Edit an expense."""
     if not check_auth(request):
@@ -823,10 +860,12 @@ async def edit_expense(
     if amount_float > 1000000:
         raise HTTPException(status_code=400, detail="Beløb er for stort")
 
+    months_list = parse_months(months if months else None, frequency)
+
     user_id = get_user_id(request)
     account_value = account if account else None
     try:
-        db.update_expense(expense_id, user_id, name, category, amount_float, frequency, account_value)
+        db.update_expense(expense_id, user_id, name, category, amount_float, frequency, account_value, months=months_list)
     except sqlite3.Error as e:
         logger.error(f"Database error updating expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved opdatering af udgiften")

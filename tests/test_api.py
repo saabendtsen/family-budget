@@ -1062,3 +1062,99 @@ class TestExpensesWithDecimals:
             follow_redirects=False
         )
         assert response.status_code == 303
+
+
+class TestExpenseRoutesWithMonths:
+    """Tests for expense routes with months field."""
+
+    def test_add_expense_with_months(self, authenticated_client):
+        """POST /budget/expenses/add with months should store them."""
+        response = authenticated_client.post("/budget/expenses/add", data={
+            "name": "Bilforsikring",
+            "category": "Forsikring",
+            "amount": "6000",
+            "frequency": "semi-annual",
+            "account": "",
+            "months": "3,9",
+        }, follow_redirects=False)
+        assert response.status_code == 303
+
+        from src import database as db
+        expenses = db.get_all_expenses(authenticated_client.user_id)
+        insurance = [e for e in expenses if e.name == "Bilforsikring"][0]
+        assert insurance.months == [3, 9]
+
+    def test_add_expense_without_months(self, authenticated_client):
+        """POST /budget/expenses/add without months should store None."""
+        response = authenticated_client.post("/budget/expenses/add", data={
+            "name": "Husleje",
+            "category": "Bolig",
+            "amount": "10000",
+            "frequency": "monthly",
+            "account": "",
+        }, follow_redirects=False)
+        assert response.status_code == 303
+
+        from src import database as db
+        expenses = db.get_all_expenses(authenticated_client.user_id)
+        rent = [e for e in expenses if e.name == "Husleje"][0]
+        assert rent.months is None
+
+    def test_add_expense_months_validation_wrong_count(self, authenticated_client):
+        """POST with wrong number of months for frequency should return 400."""
+        response = authenticated_client.post("/budget/expenses/add", data={
+            "name": "Bad",
+            "category": "Bolig",
+            "amount": "6000",
+            "frequency": "semi-annual",
+            "account": "",
+            "months": "3",
+        }, follow_redirects=False)
+        assert response.status_code == 400
+
+    def test_add_expense_months_validation_invalid_month(self, authenticated_client):
+        """POST with invalid month number should return 400."""
+        response = authenticated_client.post("/budget/expenses/add", data={
+            "name": "Bad",
+            "category": "Bolig",
+            "amount": "6000",
+            "frequency": "yearly",
+            "account": "",
+            "months": "13",
+        }, follow_redirects=False)
+        assert response.status_code == 400
+
+    def test_edit_expense_with_months(self, authenticated_client):
+        """POST /budget/expenses/{id}/edit with months should update them."""
+        from src import database as db
+        expense_id = db.add_expense(authenticated_client.user_id, "Skat", "Bolig", 18000, "yearly")
+
+        response = authenticated_client.post(f"/budget/expenses/{expense_id}/edit", data={
+            "name": "Skat",
+            "category": "Bolig",
+            "amount": "18000",
+            "frequency": "yearly",
+            "account": "",
+            "months": "7",
+        }, follow_redirects=False)
+        assert response.status_code == 303
+
+        expense = db.get_expense_by_id(expense_id, authenticated_client.user_id)
+        assert expense.months == [7]
+
+    def test_edit_expense_clear_months_on_frequency_change(self, authenticated_client):
+        """Changing frequency to monthly should clear months."""
+        from src import database as db
+        expense_id = db.add_expense(authenticated_client.user_id, "Test", "Bolig", 6000, "semi-annual", months=[3, 9])
+
+        response = authenticated_client.post(f"/budget/expenses/{expense_id}/edit", data={
+            "name": "Test",
+            "category": "Bolig",
+            "amount": "6000",
+            "frequency": "monthly",
+            "account": "",
+        }, follow_redirects=False)
+        assert response.status_code == 303
+
+        expense = db.get_expense_by_id(expense_id, authenticated_client.user_id)
+        assert expense.months is None
