@@ -1075,15 +1075,14 @@ async def delete_account(request: Request, account_id: int):
 @app.get("/budget/om", response_class=HTMLResponse)
 async def about_page(request: Request):
     """About page with user guide and self-hosting info."""
-    if not check_auth(request):
-        return RedirectResponse(url="/budget/login", status_code=303)
-
+    logged_in = check_auth(request)
     demo_mode = is_demo_mode(request)
     return templates.TemplateResponse(
         "om.html",
         {
             "request": request,
             "demo_mode": demo_mode,
+            "show_nav": logged_in or demo_mode,
             "donation_links": DONATION_LINKS if not demo_mode else {},
         }
     )
