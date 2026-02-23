@@ -1,5 +1,7 @@
 """Unit tests for database operations."""
 
+import json
+
 import pytest
 
 
@@ -948,3 +950,122 @@ class TestDecimalCalculations:
 
         total = db_module.get_total_monthly_expenses(user_id)
         assert total == 3580.23
+
+
+class TestExpenseMonthlyAmounts:
+    """Tests for Expense.get_monthly_amounts() method."""
+
+    def test_monthly_expense_no_months(self, db_module):
+        exp = db_module.Expense(id=1, user_id=1, name="Husleje", category="Bolig",
+                                amount=6000, frequency="monthly", months=None)
+        result = exp.get_monthly_amounts()
+        assert len(result) == 12
+        assert all(v == 6000 for v in result.values())
+
+    def test_yearly_expense_no_months(self, db_module):
+        exp = db_module.Expense(id=1, user_id=1, name="Forsikring", category="Forsikring",
+                                amount=12000, frequency="yearly", months=None)
+        result = exp.get_monthly_amounts()
+        assert len(result) == 12
+        assert all(v == 1000 for v in result.values())
+
+    def test_semi_annual_expense_no_months(self, db_module):
+        exp = db_module.Expense(id=1, user_id=1, name="Service", category="Transport",
+                                amount=6000, frequency="semi-annual", months=None)
+        result = exp.get_monthly_amounts()
+        assert len(result) == 12
+        assert all(v == 1000 for v in result.values())
+
+    def test_quarterly_expense_no_months(self, db_module):
+        exp = db_module.Expense(id=1, user_id=1, name="Vand", category="Forbrug",
+                                amount=2400, frequency="quarterly", months=None)
+        result = exp.get_monthly_amounts()
+        assert len(result) == 12
+        assert all(v == 800 for v in result.values())
+
+    def test_yearly_expense_with_months(self, db_module):
+        exp = db_module.Expense(id=1, user_id=1, name="Skat", category="Bolig",
+                                amount=18000, frequency="yearly", months=[1])
+        result = exp.get_monthly_amounts()
+        assert result[1] == 18000
+        assert all(result[m] == 0 for m in range(2, 13))
+
+    def test_semi_annual_with_months(self, db_module):
+        exp = db_module.Expense(id=1, user_id=1, name="Forsikring", category="Forsikring",
+                                amount=6000, frequency="semi-annual", months=[3, 9])
+        result = exp.get_monthly_amounts()
+        assert result[3] == 3000
+        assert result[9] == 3000
+        assert all(result[m] == 0 for m in range(1, 13) if m not in [3, 9])
+
+    def test_quarterly_with_months(self, db_module):
+        exp = db_module.Expense(id=1, user_id=1, name="Vand", category="Forbrug",
+                                amount=2400, frequency="quarterly", months=[1, 4, 7, 10])
+        result = exp.get_monthly_amounts()
+        assert result[1] == 600
+        assert result[4] == 600
+        assert result[7] == 600
+        assert result[10] == 600
+        assert all(result[m] == 0 for m in [2, 3, 5, 6, 8, 9, 11, 12])
+
+
+class TestMonthsMigration:
+    """Tests for months column migration."""
+
+    def test_months_column_exists_after_init(self, db_module):
+        conn = db_module.get_connection()
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(expenses)")
+        columns = [col[1] for col in cur.fetchall()]
+        conn.close()
+        assert "months" in columns
+
+    def test_existing_expenses_have_null_months(self, db_module):
+        user_id = db_module.create_user("migrationtest", "testpass")
+        expense_id = db_module.add_expense(user_id, "Test", "Bolig", 1000, "monthly")
+        expense = db_module.get_expense_by_id(expense_id, user_id)
+        assert expense.months is None
+
+
+class TestExpenseCRUDWithMonths:
+    """Tests for expense CRUD operations with months field."""
+
+    def test_add_expense_with_months(self, db_module):
+        """add_expense should store months as JSON."""
+        user_id = db_module.create_user("monthstest1", "testpass")
+        expense_id = db_module.add_expense(user_id, "Forsikring", "Forsikring", 6000, "semi-annual", months=[3, 9])
+        expense = db_module.get_expense_by_id(expense_id, user_id)
+        assert expense.months == [3, 9]
+
+    def test_add_expense_without_months(self, db_module):
+        """add_expense without months should store None."""
+        user_id = db_module.create_user("monthstest2", "testpass")
+        expense_id = db_module.add_expense(user_id, "Husleje", "Bolig", 10000, "monthly")
+        expense = db_module.get_expense_by_id(expense_id, user_id)
+        assert expense.months is None
+
+    def test_update_expense_with_months(self, db_module):
+        """update_expense should update months field."""
+        user_id = db_module.create_user("monthstest3", "testpass")
+        expense_id = db_module.add_expense(user_id, "Skat", "Bolig", 18000, "yearly")
+        db_module.update_expense(expense_id, user_id, "Skat", "Bolig", 18000, "yearly", months=[7])
+        expense = db_module.get_expense_by_id(expense_id, user_id)
+        assert expense.months == [7]
+
+    def test_update_expense_clear_months(self, db_module):
+        """update_expense with months=None should clear months."""
+        user_id = db_module.create_user("monthstest4", "testpass")
+        expense_id = db_module.add_expense(user_id, "Skat", "Bolig", 18000, "yearly", months=[1])
+        db_module.update_expense(expense_id, user_id, "Skat", "Bolig", 18000, "yearly", months=None)
+        expense = db_module.get_expense_by_id(expense_id, user_id)
+        assert expense.months is None
+
+    def test_get_all_expenses_includes_months(self, db_module):
+        """get_all_expenses should include months field."""
+        user_id = db_module.create_user("monthstest5", "testpass")
+        db_module.add_expense(user_id, "Forsikring", "Forsikring", 6000, "semi-annual", months=[3, 9])
+        db_module.add_expense(user_id, "Husleje", "Bolig", 10000, "monthly")
+        expenses = db_module.get_all_expenses(user_id)
+        months_map = {e.name: e.months for e in expenses}
+        assert months_map["Forsikring"] == [3, 9]
+        assert months_map["Husleje"] is None

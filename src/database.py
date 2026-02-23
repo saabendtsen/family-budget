@@ -1,6 +1,7 @@
 """SQLite database operations for Family Budget."""
 
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
@@ -120,6 +121,7 @@ class Expense:
     amount: float
     frequency: str  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
     account: Optional[str] = None  # Optional bank account assignment
+    months: Optional[list[int]] = None  # Which months this expense falls in (1-12)
 
     @property
     def monthly_amount(self) -> float:
@@ -127,6 +129,28 @@ class Expense:
         divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
         result = self.amount / divisors.get(self.frequency, 1)
         return round(result, 2)
+
+    def get_monthly_amounts(self) -> dict[int, float]:
+        """Return a dict mapping month (1-12) to the amount for that month.
+
+        If months is set, the total amount is split equally across those months.
+        If months is None (default), the monthly_amount is spread evenly across all 12 months.
+        Monthly expenses always spread evenly regardless of months setting.
+        """
+        result = {m: 0.0 for m in range(1, 13)}
+
+        if self.frequency == 'monthly' or self.months is None:
+            # Spread evenly across all 12 months
+            monthly = self.monthly_amount
+            for m in range(1, 13):
+                result[m] = monthly
+        else:
+            # Split total amount across specified months
+            per_month = round(self.amount / len(self.months), 2)
+            for m in self.months:
+                result[m] = per_month
+
+        return result
 
 
 @dataclass
@@ -346,6 +370,10 @@ def init_db():
     if "account" not in exp_columns:
         cur.execute("ALTER TABLE expenses ADD COLUMN account TEXT")
 
+    # Migration: Add months column to expenses table
+    if "months" not in exp_columns:
+        cur.execute("ALTER TABLE expenses ADD COLUMN months TEXT")
+
     # Create index for account lookups
     cur.execute("CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id, name)")
 
@@ -446,14 +474,19 @@ def get_all_expenses(user_id: int) -> list[Expense]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, user_id, name, category, amount, frequency, account
+        SELECT id, user_id, name, category, amount, frequency, account, months
         FROM expenses
         WHERE user_id = ?
         ORDER BY category, name
     """, (user_id,))
     rows = cur.fetchall()
     conn.close()
-    return [Expense(**dict(row)) for row in rows]
+    expenses = []
+    for row in rows:
+        d = dict(row)
+        d['months'] = json.loads(d['months']) if d['months'] else None
+        expenses.append(Expense(**d))
+    return expenses
 
 
 def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
@@ -461,22 +494,27 @@ def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, user_id, name, category, amount, frequency, account FROM expenses WHERE id = ? AND user_id = ?",
+        "SELECT id, user_id, name, category, amount, frequency, account, months FROM expenses WHERE id = ? AND user_id = ?",
         (expense_id, user_id)
     )
     row = cur.fetchone()
     conn.close()
-    return Expense(**dict(row)) if row is not None else None
+    if row is None:
+        return None
+    d = dict(row)
+    d['months'] = json.loads(d['months']) if d['months'] else None
+    return Expense(**d)
 
 
-def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None) -> int:
+def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None, months: list[int] = None) -> int:
     """Add a new expense for a user. Returns the new expense ID."""
     conn = get_connection()
     cur = conn.cursor()
+    months_json = json.dumps(months) if months else None
     cur.execute(
-        """INSERT INTO expenses (user_id, name, category, amount, frequency, account)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (user_id, name, category, amount, frequency, account)
+        """INSERT INTO expenses (user_id, name, category, amount, frequency, account, months)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (user_id, name, category, amount, frequency, account, months_json)
     )
     expense_id = cur.lastrowid
     conn.commit()
@@ -484,15 +522,16 @@ def add_expense(user_id: int, name: str, category: str, amount: float, frequency
     return expense_id
 
 
-def update_expense(expense_id: int, user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None):
+def update_expense(expense_id: int, user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None, months: list[int] = None):
     """Update an existing expense for a user."""
     conn = get_connection()
     cur = conn.cursor()
+    months_json = json.dumps(months) if months else None
     cur.execute(
         """UPDATE expenses
-           SET name = ?, category = ?, amount = ?, frequency = ?, account = ?
+           SET name = ?, category = ?, amount = ?, frequency = ?, account = ?, months = ?
            WHERE id = ? AND user_id = ?""",
-        (name, category, amount, frequency, account, expense_id, user_id)
+        (name, category, amount, frequency, account, months_json, expense_id, user_id)
     )
     conn.commit()
     conn.close()
