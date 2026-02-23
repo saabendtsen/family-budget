@@ -1158,3 +1158,19 @@ class TestExpenseRoutesWithMonths:
 
         expense = db.get_expense_by_id(expense_id, authenticated_client.user_id)
         assert expense.months is None
+
+
+class TestYearlyOverviewRoute:
+    """Tests for GET /budget/yearly route."""
+
+    def test_yearly_requires_auth(self, client):
+        """GET /budget/yearly should redirect to login if not authenticated."""
+        response = client.get("/budget/yearly", follow_redirects=False)
+        assert response.status_code == 303
+        assert "/budget/login" in response.headers["location"]
+
+    def test_yearly_page_loads(self, authenticated_client):
+        """GET /budget/yearly should return 200."""
+        response = authenticated_client.get("/budget/yearly")
+        assert response.status_code == 200
+        assert "Årsoverblik" in response.text

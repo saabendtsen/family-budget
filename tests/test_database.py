@@ -1069,3 +1069,66 @@ class TestExpenseCRUDWithMonths:
         months_map = {e.name: e.months for e in expenses}
         assert months_map["Forsikring"] == [3, 9]
         assert months_map["Husleje"] is None
+
+
+class TestYearlyOverview:
+    """Tests for yearly overview data calculation."""
+
+    def test_yearly_overview_empty(self, db_module):
+        """Empty budget should return zeros."""
+        user_id = db_module.create_user("yearlytest1", "testpass")
+        result = db_module.get_yearly_overview(user_id)
+        assert result['categories'] == {}
+        assert all(result['totals'][m] == 0 for m in range(1, 13))
+
+    def test_yearly_overview_monthly_expense(self, db_module):
+        """Monthly expense shows same amount every month."""
+        user_id = db_module.create_user("yearlytest2", "testpass")
+        db_module.add_expense(user_id, "Husleje", "Bolig", 10000, "monthly")
+        result = db_module.get_yearly_overview(user_id)
+        assert all(result['categories']['Bolig'][m] == 10000 for m in range(1, 13))
+        assert result['year_total'] == 120000
+
+    def test_yearly_overview_with_months(self, db_module):
+        """Expense with months assigned shows in correct months."""
+        user_id = db_module.create_user("yearlytest3", "testpass")
+        db_module.add_expense(user_id, "Forsikring", "Forsikring", 6000, "semi-annual", months=[3, 9])
+        result = db_module.get_yearly_overview(user_id)
+        assert result['categories']['Forsikring'][3] == 3000
+        assert result['categories']['Forsikring'][9] == 3000
+        assert result['categories']['Forsikring'][1] == 0
+        assert result['year_total'] == 6000
+
+    def test_yearly_overview_mixed_expenses(self, db_module):
+        """Multiple expenses combine correctly per category."""
+        user_id = db_module.create_user("yearlytest4", "testpass")
+        db_module.add_expense(user_id, "Husleje", "Bolig", 10000, "monthly")
+        db_module.add_expense(user_id, "Ejendomsskat", "Bolig", 18000, "yearly", months=[1])
+        result = db_module.get_yearly_overview(user_id)
+        assert result['categories']['Bolig'][1] == 28000  # 10000 + 18000
+        assert result['categories']['Bolig'][2] == 10000   # Only husleje
+
+    def test_yearly_overview_totals(self, db_module):
+        """Totals row sums all categories per month."""
+        user_id = db_module.create_user("yearlytest5", "testpass")
+        db_module.add_expense(user_id, "Husleje", "Bolig", 5000, "monthly")
+        db_module.add_expense(user_id, "Mad", "Mad", 3000, "monthly")
+        result = db_module.get_yearly_overview(user_id)
+        assert all(result['totals'][m] == 8000 for m in range(1, 13))
+
+    def test_yearly_overview_income(self, db_module):
+        """Income is spread equally (no months support)."""
+        user_id = db_module.create_user("yearlytest6", "testpass")
+        db_module.add_income(user_id, "Løn", 30000, "monthly")
+        result = db_module.get_yearly_overview(user_id)
+        assert all(result['income'][m] == 30000 for m in range(1, 13))
+
+    def test_yearly_overview_balance(self, db_module):
+        """Balance = income - expenses per month."""
+        user_id = db_module.create_user("yearlytest7", "testpass")
+        db_module.add_income(user_id, "Løn", 30000, "monthly")
+        db_module.add_expense(user_id, "Husleje", "Bolig", 10000, "monthly")
+        db_module.add_expense(user_id, "Skat", "Bolig", 18000, "yearly", months=[1])
+        result = db_module.get_yearly_overview(user_id)
+        assert result['balance'][1] == 2000   # 30000 - 10000 - 18000
+        assert result['balance'][2] == 20000  # 30000 - 10000

@@ -221,6 +221,20 @@ def format_currency(amount: float) -> str:
 
 # Add to Jinja2 globals
 templates.env.globals["format_currency"] = format_currency
+
+
+def format_currency_short(amount: float) -> str:
+    """Format amount as short Danish currency (no 'kr' suffix, no decimals for whole numbers)."""
+    if amount == 0:
+        return "0"
+    if amount == int(amount):
+        formatted = f"{int(amount):,}".replace(",", ".")
+    else:
+        formatted = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return formatted
+
+
+templates.env.globals["format_currency_short"] = format_currency_short
 templates.env.globals["app_version"] = app.state.version
 
 
@@ -1443,6 +1457,31 @@ async def update_email(
             "success": "Email tilføjet"
         }
     )
+
+
+# =============================================================================
+# Yearly overview
+# =============================================================================
+
+@app.get("/budget/yearly", response_class=HTMLResponse)
+async def yearly_overview_page(request: Request):
+    """Yearly overview page with monthly expense breakdown."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    user_id = get_user_id(request)
+    demo = is_demo_mode(request)
+
+    if demo:
+        overview = db.get_yearly_overview_demo()
+    else:
+        overview = db.get_yearly_overview(user_id)
+
+    return templates.TemplateResponse("yearly.html", {
+        "request": request,
+        "overview": overview,
+        "demo_mode": demo,
+    })
 
 
 # =============================================================================
