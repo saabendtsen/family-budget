@@ -118,7 +118,7 @@
                     </div>
                     <div class="flex gap-2 mt-2">
                         <button
-                            onclick='openEditModal({{ expense.id }}, {{ expense.name|tojson|e }}, {{ expense.category|tojson|e }}, {{ expense.amount }}, {{ expense.frequency|tojson|e }}, {{ (expense.account or "")|tojson|e }})'
+                            onclick='openEditModal({{ expense.id }}, {{ expense.name|tojson|e }}, {{ expense.category|tojson|e }}, {{ expense.amount }}, {{ expense.frequency|tojson|e }}, {{ (expense.account or "")|tojson|e }}, {{ expense.months|tojson }})'
                             class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1"
                         >
                             <i data-lucide="pencil" class="w-3 h-3"></i>
@@ -263,7 +263,29 @@
                     <i data-lucide="chevron-right" id="advanced-chevron" class="w-4 h-4 transition-transform duration-200"></i>
                     Avanceret
                 </button>
-                <div id="advanced-section" class="hidden mt-3">
+                <div id="advanced-section" class="hidden mt-3 space-y-3">
+                    <div id="months-picker-section" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Falder i <span class="text-gray-400 font-normal">(valgfri)</span>
+                        </label>
+                        <p id="months-hint" class="text-xs text-gray-400 dark:text-gray-500 mb-2">Ikke valgt = fordeles ligeligt</p>
+                        <input type="hidden" name="months" id="expense-months" value="">
+                        <div class="grid grid-cols-6 gap-1.5">
+                            <button type="button" data-month="1" onclick="toggleMonth(1)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Jan</button>
+                            <button type="button" data-month="2" onclick="toggleMonth(2)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Feb</button>
+                            <button type="button" data-month="3" onclick="toggleMonth(3)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Mar</button>
+                            <button type="button" data-month="4" onclick="toggleMonth(4)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Apr</button>
+                            <button type="button" data-month="5" onclick="toggleMonth(5)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Maj</button>
+                            <button type="button" data-month="6" onclick="toggleMonth(6)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Jun</button>
+                            <button type="button" data-month="7" onclick="toggleMonth(7)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Jul</button>
+                            <button type="button" data-month="8" onclick="toggleMonth(8)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Aug</button>
+                            <button type="button" data-month="9" onclick="toggleMonth(9)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Sep</button>
+                            <button type="button" data-month="10" onclick="toggleMonth(10)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Okt</button>
+                            <button type="button" data-month="11" onclick="toggleMonth(11)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Nov</button>
+                            <button type="button" data-month="12" onclick="toggleMonth(12)" class="month-btn py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary transition-colors">Dec</button>
+                        </div>
+                    </div>
+                    <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Konto <span class="text-gray-400 font-normal">(valgfri)</span></label>
                     <input type="hidden" name="account" id="expense-account" value="">
                     <div id="account-dropdown" class="relative">
@@ -304,6 +326,7 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -584,6 +607,104 @@
         }
     }
 
+    // Month picker logic
+    const selectedMonths = new Set();
+    const monthsRequired = { 'quarterly': 4, 'semi-annual': 2, 'yearly': 1 };
+
+    function getRequiredMonths() {
+        const freq = document.querySelector('input[name="frequency"]:checked')?.value;
+        return monthsRequired[freq] || 0;
+    }
+
+    function toggleMonth(month) {
+        const btn = document.querySelector(`[data-month="${month}"]`);
+        if (selectedMonths.has(month)) {
+            selectedMonths.delete(month);
+            btn.classList.remove('bg-primary', 'text-white', 'border-primary');
+            btn.classList.add('border-gray-300', 'dark:border-gray-600', 'text-gray-700', 'dark:text-gray-300');
+        } else {
+            const required = getRequiredMonths();
+            if (required > 0 && selectedMonths.size >= required) return;
+            selectedMonths.add(month);
+            btn.classList.add('bg-primary', 'text-white', 'border-primary');
+            btn.classList.remove('border-gray-300', 'dark:border-gray-600', 'text-gray-700', 'dark:text-gray-300');
+        }
+        updateMonthsHidden();
+        updateMonthButtons();
+    }
+
+    function updateMonthsHidden() {
+        const sorted = [...selectedMonths].sort((a, b) => a - b);
+        document.getElementById('expense-months').value = sorted.join(',');
+    }
+
+    function updateMonthButtons() {
+        const required = getRequiredMonths();
+        const atMax = required > 0 && selectedMonths.size >= required;
+        document.querySelectorAll('.month-btn').forEach(btn => {
+            const month = parseInt(btn.dataset.month);
+            if (atMax && !selectedMonths.has(month)) {
+                btn.classList.add('opacity-40');
+                btn.disabled = true;
+            } else {
+                btn.classList.remove('opacity-40');
+                btn.disabled = false;
+            }
+        });
+        const hint = document.getElementById('months-hint');
+        if (required > 0 && selectedMonths.size < required) {
+            const remaining = required - selectedMonths.size;
+            hint.textContent = `Vælg ${remaining} måned${remaining !== 1 ? 'er' : ''} mere`;
+        } else {
+            hint.textContent = 'Ikke valgt = fordeles ligeligt';
+        }
+    }
+
+    function clearMonths() {
+        selectedMonths.clear();
+        document.querySelectorAll('.month-btn').forEach(btn => {
+            btn.classList.remove('bg-primary', 'text-white', 'border-primary', 'opacity-40');
+            btn.classList.add('border-gray-300', 'dark:border-gray-600', 'text-gray-700', 'dark:text-gray-300');
+            btn.disabled = false;
+        });
+        document.getElementById('expense-months').value = '';
+    }
+
+    function setMonths(monthsArray) {
+        clearMonths();
+        if (monthsArray) {
+            monthsArray.forEach(m => {
+                selectedMonths.add(m);
+                const btn = document.querySelector(`[data-month="${m}"]`);
+                if (btn) {
+                    btn.classList.add('bg-primary', 'text-white', 'border-primary');
+                    btn.classList.remove('border-gray-300', 'dark:border-gray-600', 'text-gray-700', 'dark:text-gray-300');
+                }
+            });
+            updateMonthsHidden();
+            updateMonthButtons();
+        }
+    }
+
+    function updateMonthsPickerVisibility() {
+        const freq = document.querySelector('input[name="frequency"]:checked')?.value;
+        const section = document.getElementById('months-picker-section');
+        if (freq && freq !== 'monthly') {
+            section.classList.remove('hidden');
+        } else {
+            section.classList.add('hidden');
+            clearMonths();
+        }
+    }
+
+    // Listen for frequency changes
+    document.querySelectorAll('input[name="frequency"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            clearMonths();
+            updateMonthsPickerVisibility();
+        });
+    });
+
     function openAddModal(category = null) {
         form.action = '/budget/expenses/add';
         modalTitle.textContent = 'Tilføj udgift';
@@ -593,26 +714,36 @@
         selectAccount('', 'Ingen konto');
         document.getElementById('expense-amount').value = '';
         document.querySelector('input[name="frequency"][value="monthly"]').checked = true;
+        clearMonths();
+        updateMonthsPickerVisibility();
         setAdvancedOpen(false);
         modal.classList.remove('hidden');
         lucide.createIcons();
     }
 
-    function openEditModal(id, name, category, amount, frequency, account) {
+    function openEditModal(id, name, category, amount, frequency, account, months) {
         form.action = '/budget/expenses/' + id + '/edit';
         modalTitle.textContent = 'Rediger udgift';
         submitText.textContent = 'Gem';
         document.getElementById('expense-name').value = name;
         document.getElementById('expense-category').value = category;
-        if (account) {
-            selectAccount(account, account);
-            setAdvancedOpen(true);
-        } else {
-            selectAccount('', 'Ingen konto');
-            setAdvancedOpen(false);
-        }
         document.getElementById('expense-amount').value = amount;
         document.querySelector('input[name="frequency"][value="' + frequency + '"]').checked = true;
+        updateMonthsPickerVisibility();
+        if (months && months.length > 0) {
+            setMonths(months);
+            selectAccount(account || '', account || 'Ingen konto');
+            setAdvancedOpen(true);
+        } else {
+            clearMonths();
+            if (account) {
+                selectAccount(account, account);
+                setAdvancedOpen(true);
+            } else {
+                selectAccount('', 'Ingen konto');
+                setAdvancedOpen(false);
+            }
+        }
         modal.classList.remove('hidden');
         lucide.createIcons();
     }
