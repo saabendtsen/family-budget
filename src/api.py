@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 import httpx
@@ -566,8 +567,11 @@ async def demo_toggle(request: Request):
     current = request.cookies.get("demo_level", "simple")
     new_level = "simple" if current == "advanced" else "advanced"
 
-    # Redirect back to referring page, or dashboard
+    # Redirect back to referring page, or dashboard (validate to prevent open redirect)
     referer = request.headers.get("referer", "/budget/")
+    parsed = urlparse(referer)
+    if parsed.scheme or parsed.netloc:
+        referer = "/budget/"
     response = RedirectResponse(url=referer, status_code=303)
     response.set_cookie(
         key="demo_level",
@@ -592,6 +596,7 @@ async def logout(request: Request):
 
     response = RedirectResponse(url="/budget/login", status_code=303)
     response.delete_cookie("budget_session")
+    response.delete_cookie("demo_level")
     return response
 
 
