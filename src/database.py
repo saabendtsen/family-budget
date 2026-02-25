@@ -63,36 +63,37 @@ DEFAULT_CATEGORIES = [
 
 # Demo data - typical Danish household budget
 DEMO_INCOME = [
-    # (person, amount, frequency)
-    ("Person 1", 28000, "monthly"),
-    ("Person 2", 22000, "monthly"),
-    ("Bonus", 30000, "semi-annual"),  # Example: semi-annual bonus
+    # (person, amount, frequency, months)
+    ("Person 1", 28000, "monthly", None),
+    ("Person 2", 22000, "monthly", None),
+    ("Bonus", 30000, "semi-annual", [6, 12]),  # Bonus in June & December
 ]
 
 DEMO_EXPENSES = [
-    # (name, category, amount, frequency)
-    ("Husleje/boliglån", "Bolig", 12000, "monthly"),
-    ("Ejendomsskat", "Bolig", 18000, "yearly"),
-    ("Varme", "Forbrug", 800, "monthly"),
-    ("El", "Forbrug", 600, "monthly"),
-    ("Vand", "Forbrug", 2400, "quarterly"),  # Example: quarterly water bill
-    ("Internet", "Forbrug", 299, "monthly"),
-    ("Bil - lån", "Transport", 2500, "monthly"),
-    ("Benzin", "Transport", 1500, "monthly"),
-    ("Vægtafgift", "Transport", 3600, "yearly"),
-    ("Bilforsikring", "Transport", 6000, "yearly"),
-    ("Bilservice", "Transport", 4500, "semi-annual"),  # Example: semi-annual service
-    ("Institution", "Børn", 3200, "monthly"),
-    ("Fritidsaktiviteter", "Børn", 400, "monthly"),
-    ("Dagligvarer", "Mad", 6000, "monthly"),
-    ("Indboforsikring", "Forsikring", 1800, "yearly"),
-    ("Ulykkesforsikring", "Forsikring", 1200, "yearly"),
-    ("Tandlægeforsikring", "Forsikring", 600, "quarterly"),  # Example: quarterly dental
-    ("Netflix", "Abonnementer", 129, "monthly"),
-    ("Spotify", "Abonnementer", 99, "monthly"),
-    ("Fitness", "Abonnementer", 299, "monthly"),
-    ("Opsparing", "Opsparing", 3000, "monthly"),
-    ("Telefon", "Andet", 199, "monthly"),
+    # (name, category, amount, frequency, months)
+    # months=None means spread evenly; months=[...] means pay in those specific months
+    ("Husleje/boliglån", "Bolig", 12000, "monthly", None),
+    ("Ejendomsskat", "Bolig", 18000, "yearly", [1, 7]),  # Paid in Jan & Jul
+    ("Varme", "Forbrug", 800, "monthly", None),
+    ("El", "Forbrug", 600, "monthly", None),
+    ("Vand", "Forbrug", 2400, "quarterly", [3, 6, 9, 12]),  # Quarterly water bill
+    ("Internet", "Forbrug", 299, "monthly", None),
+    ("Bil - lån", "Transport", 2500, "monthly", None),
+    ("Benzin", "Transport", 1500, "monthly", None),
+    ("Vægtafgift", "Transport", 3600, "yearly", [4]),  # Paid in April
+    ("Bilforsikring", "Transport", 6000, "yearly", [2]),  # Paid in February
+    ("Bilservice", "Transport", 4500, "semi-annual", [3, 9]),  # Service in Mar & Sep
+    ("Institution", "Børn", 3200, "monthly", None),
+    ("Fritidsaktiviteter", "Børn", 2400, "semi-annual", [1, 8]),  # Season start Jan & Aug
+    ("Dagligvarer", "Mad", 6000, "monthly", None),
+    ("Indboforsikring", "Forsikring", 1800, "yearly", [6]),  # Paid in June
+    ("Ulykkesforsikring", "Forsikring", 1200, "yearly", [6]),  # Paid in June
+    ("Tandlægeforsikring", "Forsikring", 600, "quarterly", [3, 6, 9, 12]),  # Quarterly dental
+    ("Netflix", "Abonnementer", 129, "monthly", None),
+    ("Spotify", "Abonnementer", 99, "monthly", None),
+    ("Fitness", "Abonnementer", 299, "monthly", None),
+    ("Opsparing", "Opsparing", 3000, "monthly", None),
+    ("Telefon", "Andet", 199, "monthly", None),
 ]
 
 
@@ -103,6 +104,7 @@ class Income:
     person: str
     amount: float
     frequency: str = 'monthly'  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
+    months: Optional[list[int]] = None  # Which months this income falls in (1-12)
 
     @property
     def monthly_amount(self) -> float:
@@ -110,6 +112,19 @@ class Income:
         divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
         result = self.amount / divisors.get(self.frequency, 1)
         return round(result, 2)
+
+    def get_monthly_amounts(self) -> dict[int, float]:
+        """Return a dict mapping month (1-12) to the amount for that month."""
+        result = {m: 0.0 for m in range(1, 13)}
+        if self.frequency == 'monthly' or self.months is None:
+            monthly = self.monthly_amount
+            for m in range(1, 13):
+                result[m] = monthly
+        else:
+            per_month = round(self.amount / len(self.months), 2)
+            for m in self.months:
+                result[m] = per_month
+        return result
 
 
 @dataclass
@@ -1188,8 +1203,8 @@ def get_yearly_overview(user_id: int) -> dict:
 
 def get_demo_income() -> list[Income]:
     """Get demo income data."""
-    return [Income(id=i+1, user_id=0, person=person, amount=amount, frequency=freq)
-            for i, (person, amount, freq) in enumerate(DEMO_INCOME)]
+    return [Income(id=i+1, user_id=0, person=person, amount=amount, frequency=freq, months=months)
+            for i, (person, amount, freq, months) in enumerate(DEMO_INCOME)]
 
 
 def get_demo_total_income() -> float:
@@ -1199,8 +1214,8 @@ def get_demo_total_income() -> float:
 
 def get_demo_expenses() -> list[Expense]:
     """Get demo expense data."""
-    return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=None)
-            for i, (name, cat, amount, freq) in enumerate(DEMO_EXPENSES)]
+    return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=None, months=months)
+            for i, (name, cat, amount, freq, months) in enumerate(DEMO_EXPENSES)]
 
 
 def get_demo_expenses_by_category() -> dict[str, list[Expense]]:
@@ -1251,8 +1266,9 @@ def get_yearly_overview_demo() -> dict:
 
     income = {m: 0.0 for m in range(1, 13)}
     for inc in demo_income:
+        monthly = inc.get_monthly_amounts()
         for m in range(1, 13):
-            income[m] += inc.monthly_amount
+            income[m] += monthly[m]
     for m in range(1, 13):
         income[m] = round(income[m], 2)
 

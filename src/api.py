@@ -603,6 +603,7 @@ async def dashboard(request: Request):
         expenses_by_category = db.get_demo_expenses_by_category()
         category_totals = db.get_demo_category_totals()
         account_totals = {}
+        yearly_overview = db.get_yearly_overview_demo()
     else:
         incomes = db.get_all_income(user_id)
         total_income = db.get_total_income(user_id)
@@ -610,6 +611,7 @@ async def dashboard(request: Request):
         expenses_by_category = db.get_expenses_by_category(user_id)
         category_totals = db.get_category_totals(user_id)
         account_totals = db.get_account_totals(user_id)
+        yearly_overview = db.get_yearly_overview(user_id)
 
     remaining = total_income - total_expenses
 
@@ -631,6 +633,7 @@ async def dashboard(request: Request):
             "category_totals": category_totals,
             "category_percentages": category_percentages,
             "account_totals": account_totals,
+            "yearly_overview": yearly_overview,
             "demo_mode": demo,
         }
     )

@@ -33,7 +33,7 @@ class TestDashboard:
 
     def test_dashboard_section_order_persists(self, authenticated_page: Page, base_url: str):
         """Saved section order in localStorage should be restored on reload."""
-        custom_order = '["category-chart","income-breakdown","transfer-summary","expenses-breakdown"]'
+        custom_order = '["category-chart","income-breakdown","transfer-summary","expenses-breakdown","yearly-overview"]'
         authenticated_page.evaluate(
             f"localStorage.setItem('dashboardSectionOrder', '{custom_order}')"
         )
@@ -79,7 +79,7 @@ class TestDashboard:
             assert len(order) >= 2
             # Verify order changed: last section should now be first
             default_order = authenticated_page.evaluate("""() => {
-                return ['expenses-breakdown', 'transfer-summary', 'income-breakdown', 'category-chart'];
+                return ['expenses-breakdown', 'transfer-summary', 'income-breakdown', 'category-chart', 'yearly-overview'];
             }""")
             assert order[0] == default_order[-1]
 
