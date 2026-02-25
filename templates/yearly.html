@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% set active_page = "yearly" %}
+
+{% block title %}Årsoverblik - Budget{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6 pb-24">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Årsoverblik</h1>
+
+    {% if not overview.categories %}
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
+        <i data-lucide="calendar-range" class="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3"></i>
+        <p class="text-gray-500 dark:text-gray-400">Ingen udgifter endnu.</p>
+        <a href="/budget/expenses" class="text-primary hover:underline text-sm mt-2 inline-block">Tilføj udgifter</a>
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <th class="sticky left-0 bg-white dark:bg-gray-800 text-left px-4 py-3 font-semibold text-gray-900 dark:text-white z-10">Kategori</th>
+                        {% set month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'] %}
+                        {% for name in month_names %}
+                        <th class="text-right px-3 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{{ name }}</th>
+                        {% endfor %}
+                        <th class="text-right px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">År total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat_name, months in overview.categories.items() %}
+                    <tr class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td class="sticky left-0 bg-white dark:bg-gray-800 px-4 py-2.5 font-medium text-gray-900 dark:text-white z-10">{{ cat_name }}</td>
+                        {% for m in range(1, 13) %}
+                        <td class="text-right px-3 py-2.5 tabular-nums {% if months[m] == 0 %}text-gray-300 dark:text-gray-600{% else %}text-gray-700 dark:text-gray-300{% endif %}">
+                            {{ format_currency_short(months[m]) }}
+                        </td>
+                        {% endfor %}
+                        <td class="text-right px-4 py-2.5 font-medium tabular-nums text-gray-900 dark:text-white">
+                            {{ format_currency_short(months.values() | sum) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Expenses total row -->
+                    <tr class="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                        <td class="sticky left-0 bg-gray-50 dark:bg-gray-700/50 px-4 py-2.5 font-semibold text-gray-900 dark:text-white z-10">Udgifter i alt</td>
+                        {% for m in range(1, 13) %}
+                        <td class="text-right px-3 py-2.5 font-semibold tabular-nums text-gray-900 dark:text-white">
+                            {{ format_currency_short(overview.totals[m]) }}
+                        </td>
+                        {% endfor %}
+                        <td class="text-right px-4 py-2.5 font-bold tabular-nums text-gray-900 dark:text-white">
+                            {{ format_currency_short(overview.year_total) }}
+                        </td>
+                    </tr>
+
+                    <!-- Income row -->
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td class="sticky left-0 bg-white dark:bg-gray-800 px-4 py-2.5 font-medium text-green-600 dark:text-green-400 z-10">Indkomst</td>
+                        {% for m in range(1, 13) %}
+                        <td class="text-right px-3 py-2.5 tabular-nums text-green-600 dark:text-green-400">
+                            {{ format_currency_short(overview.income[m]) }}
+                        </td>
+                        {% endfor %}
+                        <td class="text-right px-4 py-2.5 font-medium tabular-nums text-green-600 dark:text-green-400">
+                            {{ format_currency_short(overview.income.values() | sum) }}
+                        </td>
+                    </tr>
+
+                    <!-- Balance row -->
+                    <tr class="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                        <td class="sticky left-0 bg-gray-50 dark:bg-gray-700/50 px-4 py-2.5 font-bold text-gray-900 dark:text-white z-10">Balance</td>
+                        {% for m in range(1, 13) %}
+                        <td class="text-right px-3 py-2.5 font-bold tabular-nums {% if overview.balance[m] >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                            {{ format_currency_short(overview.balance[m]) }}
+                        </td>
+                        {% endfor %}
+                        {% set year_balance = overview.balance.values() | sum %}
+                        <td class="text-right px-4 py-2.5 font-bold tabular-nums {% if year_balance >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                            {{ format_currency_short(year_balance) }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

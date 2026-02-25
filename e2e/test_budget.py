@@ -33,7 +33,7 @@ class TestDashboard:
 
     def test_dashboard_section_order_persists(self, authenticated_page: Page, base_url: str):
         """Saved section order in localStorage should be restored on reload."""
-        custom_order = '["category-chart","income-breakdown","transfer-summary","expenses-breakdown"]'
+        custom_order = '["category-chart","income-breakdown","transfer-summary","expenses-breakdown","yearly-overview"]'
         authenticated_page.evaluate(
             f"localStorage.setItem('dashboardSectionOrder', '{custom_order}')"
         )
@@ -79,7 +79,7 @@ class TestDashboard:
             assert len(order) >= 2
             # Verify order changed: last section should now be first
             default_order = authenticated_page.evaluate("""() => {
-                return ['expenses-breakdown', 'transfer-summary', 'income-breakdown', 'category-chart'];
+                return ['expenses-breakdown', 'transfer-summary', 'income-breakdown', 'category-chart', 'yearly-overview'];
             }""")
             assert order[0] == default_order[-1]
 
@@ -217,3 +217,45 @@ class TestResponsiveLayout:
         # Dashboard elements should still be visible
         expect(authenticated_page.locator("h1:has-text('Budget')")).to_be_visible()
         expect(authenticated_page.get_by_text("Indkomst", exact=True).first).to_be_visible()
+
+
+class TestYearlyOverview:
+    """E2E tests for yearly overview feature."""
+
+    def test_yearly_page_loads(self, authenticated_page: Page, base_url: str):
+        """Yearly overview page should load."""
+        authenticated_page.goto(f"{base_url}/budget/yearly")
+        expect(authenticated_page.get_by_role("heading", name="Årsoverblik")).to_be_visible()
+
+    def test_yearly_empty_state(self, authenticated_page: Page, base_url: str):
+        """Yearly overview should show empty state for new user."""
+        authenticated_page.goto(f"{base_url}/budget/yearly")
+        expect(authenticated_page.get_by_text("Ingen udgifter endnu")).to_be_visible()
+
+    def test_yearly_nav_item_visible(self, authenticated_page: Page, base_url: str):
+        """Bottom nav should include Årsoverblik link."""
+        authenticated_page.goto(f"{base_url}/budget/")
+        expect(authenticated_page.get_by_text("Årsoverblik")).to_be_visible()
+
+    def test_month_picker_visible_for_yearly(self, authenticated_page: Page, base_url: str):
+        """Month picker should appear for yearly frequency in advanced section."""
+        authenticated_page.goto(f"{base_url}/budget/expenses")
+        authenticated_page.click('[data-lucide="plus"]')
+
+        # Select yearly frequency
+        authenticated_page.click('text=Årlig')
+
+        # Open advanced section
+        authenticated_page.click('#advanced-toggle')
+
+        # Month picker should be visible
+        expect(authenticated_page.locator('#months-picker-section')).to_be_visible()
+
+    def test_month_picker_hidden_for_monthly(self, authenticated_page: Page, base_url: str):
+        """Month picker should be hidden for monthly frequency."""
+        authenticated_page.goto(f"{base_url}/budget/expenses")
+        authenticated_page.click('[data-lucide="plus"]')
+
+        # Monthly is default
+        authenticated_page.click('#advanced-toggle')
+        expect(authenticated_page.locator('#months-picker-section')).to_be_hidden()

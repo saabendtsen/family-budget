@@ -235,6 +235,87 @@
             </div>
         </div>
         </div>
+
+        <!-- Yearly Overview Table -->
+        <div data-section-id="yearly-overview">
+        <div class="group/section mt-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="flex items-center gap-1 px-4 pt-4 pb-2">
+                    <div class="drag-handle cursor-grab active:cursor-grabbing opacity-0 group-hover/section:opacity-100 transition-opacity p-1 -ml-2">
+                        <i data-lucide="grip-vertical" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400">Årsoverblik</h3>
+                </div>
+                {% if yearly_overview.categories %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-gray-700">
+                                <th class="sticky left-0 bg-white dark:bg-gray-800 text-left px-4 py-2 font-semibold text-gray-900 dark:text-white z-10">Kategori</th>
+                                {% set month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'] %}
+                                {% for name in month_names %}
+                                <th class="text-right px-3 py-2 font-semibold text-gray-900 dark:text-white whitespace-nowrap">{{ name }}</th>
+                                {% endfor %}
+                                <th class="text-right px-4 py-2 font-semibold text-gray-900 dark:text-white whitespace-nowrap">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cat_name, months in yearly_overview.categories.items() %}
+                            <tr class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <td class="sticky left-0 bg-white dark:bg-gray-800 px-4 py-2 font-medium text-gray-900 dark:text-white z-10">{{ cat_name }}</td>
+                                {% for m in range(1, 13) %}
+                                <td class="text-right px-3 py-2 tabular-nums {% if months[m] == 0 %}text-gray-300 dark:text-gray-600{% else %}text-gray-700 dark:text-gray-300{% endif %}">
+                                    {{ format_currency_short(months[m]) }}
+                                </td>
+                                {% endfor %}
+                                <td class="text-right px-4 py-2 font-medium tabular-nums text-gray-900 dark:text-white">
+                                    {{ format_currency_short(months.values() | sum) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                                <td class="sticky left-0 bg-gray-50 dark:bg-gray-700/50 px-4 py-2 font-semibold text-gray-900 dark:text-white z-10">Udgifter i alt</td>
+                                {% for m in range(1, 13) %}
+                                <td class="text-right px-3 py-2 font-semibold tabular-nums text-gray-900 dark:text-white">
+                                    {{ format_currency_short(yearly_overview.totals[m]) }}
+                                </td>
+                                {% endfor %}
+                                <td class="text-right px-4 py-2 font-bold tabular-nums text-gray-900 dark:text-white">
+                                    {{ format_currency_short(yearly_overview.year_total) }}
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <td class="sticky left-0 bg-white dark:bg-gray-800 px-4 py-2 font-medium text-green-600 dark:text-green-400 z-10">Indkomst</td>
+                                {% for m in range(1, 13) %}
+                                <td class="text-right px-3 py-2 tabular-nums text-green-600 dark:text-green-400">
+                                    {{ format_currency_short(yearly_overview.income[m]) }}
+                                </td>
+                                {% endfor %}
+                                <td class="text-right px-4 py-2 font-medium tabular-nums text-green-600 dark:text-green-400">
+                                    {{ format_currency_short(yearly_overview.income.values() | sum) }}
+                                </td>
+                            </tr>
+                            <tr class="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                                <td class="sticky left-0 bg-gray-50 dark:bg-gray-700/50 px-4 py-2 font-bold text-gray-900 dark:text-white z-10">Balance</td>
+                                {% for m in range(1, 13) %}
+                                <td class="text-right px-3 py-2 font-bold tabular-nums {% if yearly_overview.balance[m] >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                                    {{ format_currency_short(yearly_overview.balance[m]) }}
+                                </td>
+                                {% endfor %}
+                                {% set year_balance = yearly_overview.balance.values() | sum %}
+                                <td class="text-right px-4 py-2 font-bold tabular-nums {% if year_balance >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                                    {{ format_currency_short(year_balance) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-gray-400 dark:text-gray-500 text-center py-6 text-sm">Ingen udgifter endnu.</p>
+                {% endif %}
+            </div>
+        </div>
+        </div>
     </div>
 
     <!-- Reset order button -->
@@ -382,7 +463,8 @@
         'expenses-breakdown',
         'transfer-summary',
         'income-breakdown',
-        'category-chart'
+        'category-chart',
+        'yearly-overview'
     ];
 
     function initSortableSections() {
