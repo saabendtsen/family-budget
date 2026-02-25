@@ -11,6 +11,7 @@ This file defines the operational rules for Claude Code within the Family Budget
 - **Release:** Automatic via `release-please` and `automerge-release`.
 - **Manual Deploy:** `cd ~/projects/family-budget && docker compose up -d --build`.
 - **Auto-Deploy:** Currently **disabled** to avoid overwriting feature branches on server.
+- **Dockerfile:** When adding a new top-level directory (e.g. `static/`, `assets/`), always add a corresponding `COPY <dir>/ ./<dir>/` line to the Dockerfile.
 
 ## 3. Development Workflow
 - **No Direct Commits to Master:** Use branch → PR → merge workflow.
