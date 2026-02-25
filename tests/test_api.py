@@ -366,6 +366,17 @@ class TestPrivacyPolicy:
         assert response.status_code == 200
 
 
+class TestOmPage:
+    """Tests for the Om page."""
+
+    def test_om_page_has_install_button(self, authenticated_client):
+        """Om page should have install guide trigger."""
+        response = authenticated_client.get("/budget/om")
+        assert response.status_code == 200
+        assert 'openInstallGuide()' in response.text
+        assert 'Installer som app' in response.text
+
+
 class TestDashboard:
     """Tests for dashboard functionality."""
 
@@ -1288,3 +1299,59 @@ class TestYearlyOverviewRoute:
         response = authenticated_client.get("/budget/yearly")
         assert response.status_code == 200
         assert "Årsoverblik" in response.text
+
+
+class TestStaticFiles:
+    """Tests for static file serving."""
+
+    def test_manifest_json_accessible(self, client):
+        """manifest.json should be served at /budget/static/manifest.json."""
+        response = client.get("/budget/static/manifest.json")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/json")
+
+    def test_icon_192_accessible(self, client):
+        """192x192 icon should be served."""
+        response = client.get("/budget/static/icons/icon-192.png")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_icon_512_accessible(self, client):
+        """512x512 icon should be served."""
+        response = client.get("/budget/static/icons/icon-512.png")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_manifest_json_has_required_fields(self, client):
+        """manifest.json should have required PWA fields."""
+        import json
+        response = client.get("/budget/static/manifest.json")
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["name"] == "Family Budget"
+        assert data["display"] == "standalone"
+        assert data["start_url"] == "/budget/"
+        assert data["scope"] == "/budget/"
+
+    def test_base_html_links_manifest(self, client):
+        """All pages should include manifest link in head."""
+        response = client.get("/budget/login")
+        assert response.status_code == 200
+        assert 'rel="manifest"' in response.text
+        assert '/budget/static/manifest.json' in response.text
+        assert 'apple-touch-icon' in response.text
+
+    def test_install_modal_in_base(self, client):
+        """Install guide modal should be present on all pages."""
+        response = client.get("/budget/login")
+        assert response.status_code == 200
+        assert 'install-guide-modal' in response.text
+        assert 'openInstallGuide' in response.text
+
+    def test_install_modal_has_both_platforms(self, client):
+        """Modal should have both iOS and Android content."""
+        response = client.get("/budget/login")
+        assert 'steps-ios' in response.text
+        assert 'steps-android' in response.text
+        assert 'Safari' in response.text
+        assert 'Chrome' in response.text
