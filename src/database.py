@@ -94,6 +94,41 @@ DEMO_EXPENSES = [
     ("Telefon", "Andet", 199, "monthly"),
 ]
 
+# Advanced demo data - adds account assignments and extra income
+DEMO_INCOME_ADVANCED = [
+    # (person, amount, frequency)
+    ("Person 1", 28000, "monthly"),
+    ("Person 2", 22000, "monthly"),
+    ("Bonus", 30000, "semi-annual"),
+    ("Børnepenge", 6264, "quarterly"),
+]
+
+DEMO_EXPENSES_ADVANCED = [
+    # (name, category, amount, frequency, account)
+    ("Husleje/boliglån", "Bolig", 12000, "monthly", "Fælles konto"),
+    ("Ejendomsskat", "Bolig", 18000, "yearly", "Fælles konto"),
+    ("Varme", "Forbrug", 800, "monthly", "Fælles konto"),
+    ("El", "Forbrug", 600, "monthly", "Fælles konto"),
+    ("Vand", "Forbrug", 2400, "quarterly", "Fælles konto"),
+    ("Internet", "Forbrug", 299, "monthly", "Fælles konto"),
+    ("Bil - lån", "Transport", 2500, "monthly", "Fælles konto"),
+    ("Benzin", "Transport", 1500, "monthly", "Fælles konto"),
+    ("Vægtafgift", "Transport", 3600, "yearly", "Fælles konto"),
+    ("Bilforsikring", "Transport", 6000, "yearly", "Fælles konto"),
+    ("Bilservice", "Transport", 4500, "semi-annual", "Fælles konto"),
+    ("Institution", "Børn", 3200, "monthly", "Fælles konto"),
+    ("Fritidsaktiviteter", "Børn", 400, "monthly", "Fælles konto"),
+    ("Dagligvarer", "Mad", 6000, "monthly", "Fælles konto"),
+    ("Indboforsikring", "Forsikring", 1800, "yearly", "Fælles konto"),
+    ("Ulykkesforsikring", "Forsikring", 1200, "yearly", "Fælles konto"),
+    ("Tandlægeforsikring", "Forsikring", 600, "quarterly", "Fælles konto"),
+    ("Netflix", "Abonnementer", 129, "monthly", "Person 1 konto"),
+    ("Spotify", "Abonnementer", 99, "monthly", "Person 2 konto"),
+    ("Fitness", "Abonnementer", 299, "monthly", "Person 1 konto"),
+    ("Opsparing", "Opsparing", 3000, "monthly", "Opsparingskonto"),
+    ("Telefon", "Andet", 199, "monthly", "Person 2 konto"),
+]
+
 
 @dataclass
 class Income:
@@ -1088,26 +1123,30 @@ def mark_reset_token_used(token_id: int):
 # Demo data functions (returns in-memory data, not from database)
 # =============================================================================
 
-def get_demo_income() -> list[Income]:
+def get_demo_income(advanced: bool = False) -> list[Income]:
     """Get demo income data."""
+    source = DEMO_INCOME_ADVANCED if advanced else DEMO_INCOME
     return [Income(id=i+1, user_id=0, person=person, amount=amount, frequency=freq)
-            for i, (person, amount, freq) in enumerate(DEMO_INCOME)]
+            for i, (person, amount, freq) in enumerate(source)]
 
 
-def get_demo_total_income() -> float:
+def get_demo_total_income(advanced: bool = False) -> float:
     """Get total demo income (converted to monthly equivalent)."""
-    return sum(inc.monthly_amount for inc in get_demo_income())
+    return sum(inc.monthly_amount for inc in get_demo_income(advanced))
 
 
-def get_demo_expenses() -> list[Expense]:
+def get_demo_expenses(advanced: bool = False) -> list[Expense]:
     """Get demo expense data."""
+    if advanced:
+        return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=acct)
+                for i, (name, cat, amount, freq, acct) in enumerate(DEMO_EXPENSES_ADVANCED)]
     return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=None)
             for i, (name, cat, amount, freq) in enumerate(DEMO_EXPENSES)]
 
 
-def get_demo_expenses_by_category() -> dict[str, list[Expense]]:
+def get_demo_expenses_by_category(advanced: bool = False) -> dict[str, list[Expense]]:
     """Get demo expenses grouped by category."""
-    expenses = get_demo_expenses()
+    expenses = get_demo_expenses(advanced)
     grouped = {}
     for exp in expenses:
         if exp.category not in grouped:
@@ -1116,9 +1155,9 @@ def get_demo_expenses_by_category() -> dict[str, list[Expense]]:
     return grouped
 
 
-def get_demo_category_totals() -> dict[str, float]:
+def get_demo_category_totals(advanced: bool = False) -> dict[str, float]:
     """Get demo total monthly amount per category."""
-    expenses = get_demo_expenses()
+    expenses = get_demo_expenses(advanced)
     totals = {}
     for exp in expenses:
         if exp.category not in totals:
@@ -1127,9 +1166,23 @@ def get_demo_category_totals() -> dict[str, float]:
     return totals
 
 
-def get_demo_total_expenses() -> float:
+def get_demo_total_expenses(advanced: bool = False) -> float:
     """Get demo total monthly expenses."""
-    return sum(exp.monthly_amount for exp in get_demo_expenses())
+    return sum(exp.monthly_amount for exp in get_demo_expenses(advanced))
+
+
+def get_demo_account_totals(advanced: bool = False) -> dict[str, float]:
+    """Get demo account totals (monthly equivalent)."""
+    if not advanced:
+        return {}
+    expenses = get_demo_expenses(advanced=True)
+    totals = {}
+    for exp in expenses:
+        if exp.account:
+            if exp.account not in totals:
+                totals[exp.account] = 0
+            totals[exp.account] += exp.monthly_amount
+    return totals
 
 
 # Initialize database when run directly (for testing/setup)

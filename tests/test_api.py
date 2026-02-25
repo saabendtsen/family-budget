@@ -1062,3 +1062,35 @@ class TestExpensesWithDecimals:
             follow_redirects=False
         )
         assert response.status_code == 303
+
+
+class TestAdvancedDemoData:
+    """Tests for advanced demo data functions."""
+
+    def test_advanced_expenses_have_accounts(self, db_module):
+        """Advanced demo expenses should all have account assignments."""
+        expenses = db_module.get_demo_expenses(advanced=True)
+        for exp in expenses:
+            assert exp.account is not None, f"Expense '{exp.name}' missing account"
+
+    def test_advanced_income_has_extra_source(self, db_module):
+        """Advanced demo income should have more sources than simple."""
+        simple = db_module.get_demo_income(advanced=False)
+        advanced = db_module.get_demo_income(advanced=True)
+        assert len(advanced) > len(simple)
+
+    def test_simple_expenses_have_no_accounts(self, db_module):
+        """Simple demo expenses should have no account assignments."""
+        expenses = db_module.get_demo_expenses(advanced=False)
+        for exp in expenses:
+            assert exp.account is None
+
+    def test_advanced_account_totals_not_empty(self, db_module):
+        """Advanced demo should return account totals."""
+        totals = db_module.get_demo_account_totals(advanced=True)
+        assert len(totals) > 0
+
+    def test_simple_account_totals_empty(self, db_module):
+        """Simple demo should return empty account totals."""
+        totals = db_module.get_demo_account_totals(advanced=False)
+        assert len(totals) == 0
