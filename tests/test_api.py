@@ -1297,3 +1297,26 @@ class TestStaticFiles:
         response = client.get("/budget/static/manifest.json")
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("application/json")
+
+    def test_icon_192_accessible(self, client):
+        """192x192 icon should be served."""
+        response = client.get("/budget/static/icons/icon-192.png")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_icon_512_accessible(self, client):
+        """512x512 icon should be served."""
+        response = client.get("/budget/static/icons/icon-512.png")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_manifest_json_has_required_fields(self, client):
+        """manifest.json should have required PWA fields."""
+        import json
+        response = client.get("/budget/static/manifest.json")
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["name"] == "Family Budget"
+        assert data["display"] == "standalone"
+        assert data["start_url"] == "/budget/"
+        assert len(data["icons"]) == 2
