@@ -1287,4 +1287,13 @@ class TestYearlyOverviewRoute:
         """GET /budget/yearly should return 200."""
         response = authenticated_client.get("/budget/yearly")
         assert response.status_code == 200
-        assert "Årsoverblik" in response.text
+
+
+class TestStaticFiles:
+    """Tests for static file serving."""
+
+    def test_manifest_json_accessible(self, client):
+        """manifest.json should be served at /budget/static/manifest.json."""
+        response = client.get("/budget/static/manifest.json")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/json")

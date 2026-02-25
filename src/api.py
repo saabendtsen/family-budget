@@ -20,6 +20,7 @@ import httpx
 
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -175,6 +176,10 @@ app.state.version = __version__
 # Add security and rate limiting middleware
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware, max_attempts=5, window_seconds=300)
+
+# Serve static files
+STATIC_DIR = Path(__file__).parent.parent / "static"
+app.mount("/budget/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 # =============================================================================
