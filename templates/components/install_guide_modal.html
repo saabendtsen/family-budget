@@ -1,0 +1,140 @@
+<!-- Install Guide Modal -->
+<div id="install-guide-modal"
+     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center hidden"
+     role="dialog" aria-modal="true" aria-labelledby="install-guide-title">
+
+  <!-- Backdrop -->
+  <div id="install-guide-backdrop"
+       class="absolute inset-0 bg-black/50"
+       onclick="closeInstallGuide()"></div>
+
+  <!-- Modal panel -->
+  <div class="relative w-full sm:max-w-md bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-xl p-6 z-10">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="install-guide-title" class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <i data-lucide="smartphone" class="w-5 h-5 text-primary"></i>
+        Installer som app
+      </h2>
+      <button onclick="closeInstallGuide()"
+              class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg"
+              aria-label="Luk">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      Tilføj Budget til din startskærm og brug den som en rigtig app — uden adresselinje.
+    </p>
+
+    <!-- Platform tabs -->
+    <div class="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1 mb-5" role="tablist">
+      <button id="tab-ios"
+              onclick="switchInstallTab('ios')"
+              role="tab"
+              class="flex-1 text-sm font-medium py-1.5 rounded-md transition-colors"
+              aria-selected="true">
+        iOS (Safari)
+      </button>
+      <button id="tab-android"
+              onclick="switchInstallTab('android')"
+              role="tab"
+              class="flex-1 text-sm font-medium py-1.5 rounded-md transition-colors"
+              aria-selected="false">
+        Android (Chrome)
+      </button>
+    </div>
+
+    <!-- iOS steps -->
+    <ol id="steps-ios" class="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">1</span>
+        <span>Åbn appen i <strong>Safari</strong> (ikke Chrome eller Firefox)</span>
+      </li>
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">2</span>
+        <span>Tryk på <strong>Del-ikonet</strong> nederst på skærmen (firkant med pil op ↑)</span>
+      </li>
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">3</span>
+        <span>Rul ned i menuen og tryk <strong>"Føj til hjemmeskærm"</strong></span>
+      </li>
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">4</span>
+        <span>Tryk <strong>"Tilføj"</strong> øverst til højre</span>
+      </li>
+    </ol>
+
+    <!-- Android steps -->
+    <ol id="steps-android" class="space-y-3 text-sm text-gray-700 dark:text-gray-300 hidden">
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">1</span>
+        <span>Åbn appen i <strong>Chrome</strong></span>
+      </li>
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">2</span>
+        <span>Tryk på <strong>⋮ menuen</strong> øverst til højre</span>
+      </li>
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">3</span>
+        <span>Tryk <strong>"Tilføj til startskærm"</strong> eller <strong>"Installer app"</strong></span>
+      </li>
+      <li class="flex items-start gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold flex items-center justify-center">4</span>
+        <span>Tryk <strong>"Installer"</strong> i den dialog der vises</span>
+      </li>
+    </ol>
+
+  </div>
+</div>
+
+<script>
+  (function() {
+    function activeTabClass() {
+      return 'flex-1 text-sm font-medium py-1.5 rounded-md transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm';
+    }
+    function inactiveTabClass() {
+      return 'flex-1 text-sm font-medium py-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200';
+    }
+
+    window.openInstallGuide = function() {
+      var modal = document.getElementById('install-guide-modal');
+      modal.classList.remove('hidden');
+      var isAndroid = /Android/i.test(navigator.userAgent);
+      switchInstallTab(isAndroid ? 'android' : 'ios');
+      lucide.createIcons();
+    };
+
+    window.closeInstallGuide = function() {
+      document.getElementById('install-guide-modal').classList.add('hidden');
+    };
+
+    window.switchInstallTab = function(platform) {
+      var iosTab = document.getElementById('tab-ios');
+      var androidTab = document.getElementById('tab-android');
+      var iosSteps = document.getElementById('steps-ios');
+      var androidSteps = document.getElementById('steps-android');
+
+      if (platform === 'ios') {
+        iosTab.className = activeTabClass();
+        androidTab.className = inactiveTabClass();
+        iosTab.setAttribute('aria-selected', 'true');
+        androidTab.setAttribute('aria-selected', 'false');
+        iosSteps.classList.remove('hidden');
+        androidSteps.classList.add('hidden');
+      } else {
+        androidTab.className = activeTabClass();
+        iosTab.className = inactiveTabClass();
+        androidTab.setAttribute('aria-selected', 'true');
+        iosTab.setAttribute('aria-selected', 'false');
+        androidSteps.classList.remove('hidden');
+        iosSteps.classList.add('hidden');
+      }
+    };
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeInstallGuide(); }
+    });
+  })();
+</script>

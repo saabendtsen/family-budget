@@ -1327,3 +1327,18 @@ class TestStaticFiles:
         assert 'rel="manifest"' in response.text
         assert '/budget/static/manifest.json' in response.text
         assert 'apple-touch-icon' in response.text
+
+    def test_install_modal_in_base(self, client):
+        """Install guide modal should be present on all pages."""
+        response = client.get("/budget/login")
+        assert response.status_code == 200
+        assert 'install-guide-modal' in response.text
+        assert 'openInstallGuide' in response.text
+
+    def test_install_modal_has_both_platforms(self, client):
+        """Modal should have both iOS and Android content."""
+        response = client.get("/budget/login")
+        assert 'steps-ios' in response.text
+        assert 'steps-android' in response.text
+        assert 'Safari' in response.text
+        assert 'Chrome' in response.text
