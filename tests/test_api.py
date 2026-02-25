@@ -1104,7 +1104,7 @@ class TestDemoToggle:
         client.cookies.set("budget_session", "demo")
         response = client.get("/budget/")
         # Should not have account totals in simple mode
-        assert "Fælles konto" not in response.text
+        assert "Budgetkonto" not in response.text
 
     def test_toggle_sets_advanced_cookie(self, client):
         """Toggle endpoint should set demo_level=advanced cookie."""
@@ -1136,20 +1136,20 @@ class TestAdvancedDemoRoutes:
         client.cookies.set("budget_session", "demo")
         client.cookies.set("demo_level", "advanced")
         response = client.get("/budget/")
-        assert "Fælles konto" in response.text
+        assert "Budgetkonto" in response.text
 
     def test_dashboard_simple_hides_accounts(self, client):
         """Dashboard in simple mode should not show accounts."""
         client.cookies.set("budget_session", "demo")
         response = client.get("/budget/")
-        assert "Fælles konto" not in response.text
+        assert "Budgetkonto" not in response.text
 
     def test_expenses_advanced_shows_accounts(self, client):
         """Expenses page in advanced mode should show account list."""
         client.cookies.set("budget_session", "demo")
         client.cookies.set("demo_level", "advanced")
         response = client.get("/budget/expenses")
-        assert "Fælles konto" in response.text
+        assert "Budgetkonto" in response.text
 
     def test_income_advanced_shows_extra_source(self, client):
         """Income page in advanced mode should show Børnepenge as a value."""

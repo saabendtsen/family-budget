@@ -105,23 +105,23 @@ DEMO_INCOME_ADVANCED = [
 
 DEMO_EXPENSES_ADVANCED = [
     # (name, category, amount, frequency, account)
-    ("Husleje/boliglån", "Bolig", 12000, "monthly", "Fælles konto"),
-    ("Ejendomsskat", "Bolig", 18000, "yearly", "Fælles konto"),
-    ("Varme", "Forbrug", 800, "monthly", "Fælles konto"),
-    ("El", "Forbrug", 600, "monthly", "Fælles konto"),
-    ("Vand", "Forbrug", 2400, "quarterly", "Fælles konto"),
-    ("Internet", "Forbrug", 299, "monthly", "Fælles konto"),
-    ("Bil - lån", "Transport", 2500, "monthly", "Fælles konto"),
-    ("Benzin", "Transport", 1500, "monthly", "Fælles konto"),
-    ("Vægtafgift", "Transport", 3600, "yearly", "Fælles konto"),
-    ("Bilforsikring", "Transport", 6000, "yearly", "Fælles konto"),
-    ("Bilservice", "Transport", 4500, "semi-annual", "Fælles konto"),
-    ("Institution", "Børn", 3200, "monthly", "Fælles konto"),
-    ("Fritidsaktiviteter", "Børn", 400, "monthly", "Fælles konto"),
-    ("Dagligvarer", "Mad", 6000, "monthly", "Fælles konto"),
-    ("Indboforsikring", "Forsikring", 1800, "yearly", "Fælles konto"),
-    ("Ulykkesforsikring", "Forsikring", 1200, "yearly", "Fælles konto"),
-    ("Tandlægeforsikring", "Forsikring", 600, "quarterly", "Fælles konto"),
+    ("Husleje/boliglån", "Bolig", 12000, "monthly", "Budgetkonto"),
+    ("Ejendomsskat", "Bolig", 18000, "yearly", "Budgetkonto"),
+    ("Varme", "Forbrug", 800, "monthly", "Budgetkonto"),
+    ("El", "Forbrug", 600, "monthly", "Budgetkonto"),
+    ("Vand", "Forbrug", 2400, "quarterly", "Budgetkonto"),
+    ("Internet", "Forbrug", 299, "monthly", "Budgetkonto"),
+    ("Bil - lån", "Transport", 2500, "monthly", "Budgetkonto"),
+    ("Benzin", "Transport", 1500, "monthly", "Forbrugskonto"),
+    ("Vægtafgift", "Transport", 3600, "yearly", "Budgetkonto"),
+    ("Bilforsikring", "Transport", 6000, "yearly", "Budgetkonto"),
+    ("Bilservice", "Transport", 4500, "semi-annual", "Budgetkonto"),
+    ("Institution", "Børn", 3200, "monthly", "Budgetkonto"),
+    ("Fritidsaktiviteter", "Børn", 400, "monthly", "Forbrugskonto"),
+    ("Dagligvarer", "Mad", 6000, "monthly", "Forbrugskonto"),
+    ("Indboforsikring", "Forsikring", 1800, "yearly", "Budgetkonto"),
+    ("Ulykkesforsikring", "Forsikring", 1200, "yearly", "Budgetkonto"),
+    ("Tandlægeforsikring", "Forsikring", 600, "quarterly", "Budgetkonto"),
     ("Netflix", "Abonnementer", 129, "monthly", "Person 1 konto"),
     ("Spotify", "Abonnementer", 99, "monthly", "Person 2 konto"),
     ("Fitness", "Abonnementer", 299, "monthly", "Person 1 konto"),
@@ -1189,7 +1189,7 @@ def get_demo_accounts(advanced: bool = False) -> list[Account]:
     """Get demo accounts for the accounts dropdown."""
     if not advanced:
         return []
-    names = ["Fælles konto", "Person 1 konto", "Person 2 konto", "Opsparingskonto"]
+    names = ["Budgetkonto", "Forbrugskonto", "Person 1 konto", "Person 2 konto", "Opsparingskonto"]
     return [Account(id=i+1, name=name) for i, name in enumerate(names)]
 
 

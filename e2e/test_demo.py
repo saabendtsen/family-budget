@@ -92,7 +92,7 @@ class TestDemoToggle:
         page.get_by_role("link", name="Avanceret").click()
         page.wait_for_load_state("networkidle")
         # In advanced mode, accounts should appear
-        expect(page.get_by_text("Fælles konto")).to_be_visible()
+        expect(page.get_by_text("Budgetkonto")).to_be_visible()
 
     def test_toggle_switches_back_to_simple(self, page: Page, base_url: str):
         """Clicking toggle again should switch back to simple."""
@@ -105,7 +105,7 @@ class TestDemoToggle:
         page.get_by_role("link", name="Simpel").click()
         page.wait_for_load_state("networkidle")
         # Accounts should be gone
-        expect(page.get_by_text("Fælles konto")).not_to_be_visible()
+        expect(page.get_by_text("Budgetkonto")).not_to_be_visible()
 
     def test_advanced_persists_across_pages(self, page: Page, base_url: str):
         """Advanced mode should persist when navigating to other pages."""
