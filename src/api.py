@@ -222,6 +222,20 @@ def format_currency(amount: float) -> str:
 
 # Add to Jinja2 globals
 templates.env.globals["format_currency"] = format_currency
+
+
+def format_currency_short(amount: float) -> str:
+    """Format amount as short Danish currency (no 'kr' suffix, no decimals for whole numbers)."""
+    if amount == 0:
+        return "0"
+    if amount == int(amount):
+        formatted = f"{int(amount):,}".replace(",", ".")
+    else:
+        formatted = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return formatted
+
+
+templates.env.globals["format_currency_short"] = format_currency_short
 templates.env.globals["app_version"] = app.state.version
 
 
@@ -623,6 +637,7 @@ async def dashboard(request: Request):
         expenses_by_category = db.get_demo_expenses_by_category(advanced)
         category_totals = db.get_demo_category_totals(advanced)
         account_totals = db.get_demo_account_totals(advanced)
+        yearly_overview = db.get_yearly_overview_demo(advanced)
     else:
         incomes = db.get_all_income(user_id)
         total_income = db.get_total_income(user_id)
@@ -630,6 +645,7 @@ async def dashboard(request: Request):
         expenses_by_category = db.get_expenses_by_category(user_id)
         category_totals = db.get_category_totals(user_id)
         account_totals = db.get_account_totals(user_id)
+        yearly_overview = db.get_yearly_overview(user_id)
 
     remaining = total_income - total_expenses
 
@@ -651,6 +667,7 @@ async def dashboard(request: Request):
             "category_totals": category_totals,
             "category_percentages": category_percentages,
             "account_totals": account_totals,
+            "yearly_overview": yearly_overview,
             "demo_mode": demo,
             "demo_advanced": advanced,
         }
@@ -772,6 +789,39 @@ async def expenses_page(request: Request):
 
 VALID_FREQUENCIES = ('monthly', 'quarterly', 'semi-annual', 'yearly')
 
+MONTHS_REQUIRED = {
+    'quarterly': 4,
+    'semi-annual': 2,
+    'yearly': 1,
+}
+
+
+def parse_months(months_str: str | None, frequency: str) -> list[int] | None:
+    """Parse and validate months form field.
+
+    Returns list of month ints, or None if no months specified.
+    Raises HTTPException(400) if validation fails.
+    """
+    if frequency == 'monthly':
+        return None
+
+    if not months_str or not months_str.strip():
+        return None
+
+    try:
+        months = [int(m.strip()) for m in months_str.split(',')]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ugyldige måneder")
+
+    if any(m < 1 or m > 12 for m in months):
+        raise HTTPException(status_code=400, detail="Måneder skal være mellem 1 og 12")
+
+    expected = MONTHS_REQUIRED.get(frequency)
+    if expected and len(months) != expected:
+        raise HTTPException(status_code=400, detail=f"Vælg præcis {expected} måneder for denne frekvens")
+
+    return sorted(months)
+
 
 @app.post("/budget/expenses/add")
 async def add_expense(
@@ -780,7 +830,8 @@ async def add_expense(
     category: str = Form(...),
     amount: str = Form(...),
     frequency: str = Form(...),
-    account: str = Form("")
+    account: str = Form(""),
+    months: str = Form(""),
 ):
     """Add a new expense."""
     if not check_auth(request):
@@ -803,10 +854,12 @@ async def add_expense(
     if amount_float > 1000000:
         raise HTTPException(status_code=400, detail="Beløb er for stort")
 
+    months_list = parse_months(months if months else None, frequency)
+
     user_id = get_user_id(request)
     account_value = account if account else None
     try:
-        db.add_expense(user_id, name, category, amount_float, frequency, account_value)
+        db.add_expense(user_id, name, category, amount_float, frequency, account_value, months=months_list)
     except sqlite3.Error as e:
         logger.error(f"Database error adding expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved tilfoejelse af udgiften")
@@ -838,7 +891,8 @@ async def edit_expense(
     category: str = Form(...),
     amount: str = Form(...),
     frequency: str = Form(...),
-    account: str = Form("")
+    account: str = Form(""),
+    months: str = Form(""),
 ):
     """Edit an expense."""
     if not check_auth(request):
@@ -861,10 +915,12 @@ async def edit_expense(
     if amount_float > 1000000:
         raise HTTPException(status_code=400, detail="Beløb er for stort")
 
+    months_list = parse_months(months if months else None, frequency)
+
     user_id = get_user_id(request)
     account_value = account if account else None
     try:
-        db.update_expense(expense_id, user_id, name, category, amount_float, frequency, account_value)
+        db.update_expense(expense_id, user_id, name, category, amount_float, frequency, account_value, months=months_list)
     except sqlite3.Error as e:
         logger.error(f"Database error updating expense: {e}")
         raise HTTPException(status_code=500, detail="Der opstod en fejl ved opdatering af udgiften")
@@ -1448,6 +1504,31 @@ async def update_email(
             "success": "Email tilføjet"
         }
     )
+
+
+# =============================================================================
+# Yearly overview
+# =============================================================================
+
+@app.get("/budget/yearly", response_class=HTMLResponse)
+async def yearly_overview_page(request: Request):
+    """Yearly overview page with monthly expense breakdown."""
+    if not check_auth(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    user_id = get_user_id(request)
+    demo = is_demo_mode(request)
+
+    if demo:
+        overview = db.get_yearly_overview_demo()
+    else:
+        overview = db.get_yearly_overview(user_id)
+
+    return templates.TemplateResponse("yearly.html", {
+        "request": request,
+        "overview": overview,
+        "demo_mode": demo,
+    })
 
 
 # =============================================================================

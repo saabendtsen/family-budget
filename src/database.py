@@ -1,6 +1,7 @@
 """SQLite database operations for Family Budget."""
 
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
@@ -62,71 +63,72 @@ DEFAULT_CATEGORIES = [
 
 # Demo data - typical Danish household budget
 DEMO_INCOME = [
-    # (person, amount, frequency)
-    ("Person 1", 28000, "monthly"),
-    ("Person 2", 22000, "monthly"),
-    ("Bonus", 30000, "semi-annual"),  # Example: semi-annual bonus
+    # (person, amount, frequency, months)
+    ("Person 1", 28000, "monthly", None),
+    ("Person 2", 22000, "monthly", None),
+    ("Bonus", 30000, "semi-annual", [6, 12]),  # Bonus in June & December
 ]
 
 DEMO_EXPENSES = [
-    # (name, category, amount, frequency)
-    ("Husleje/boliglån", "Bolig", 12000, "monthly"),
-    ("Ejendomsskat", "Bolig", 18000, "yearly"),
-    ("Varme", "Forbrug", 800, "monthly"),
-    ("El", "Forbrug", 600, "monthly"),
-    ("Vand", "Forbrug", 2400, "quarterly"),  # Example: quarterly water bill
-    ("Internet", "Forbrug", 299, "monthly"),
-    ("Bil - lån", "Transport", 2500, "monthly"),
-    ("Benzin", "Transport", 1500, "monthly"),
-    ("Vægtafgift", "Transport", 3600, "yearly"),
-    ("Bilforsikring", "Transport", 6000, "yearly"),
-    ("Bilservice", "Transport", 4500, "semi-annual"),  # Example: semi-annual service
-    ("Institution", "Børn", 3200, "monthly"),
-    ("Fritidsaktiviteter", "Børn", 400, "monthly"),
-    ("Dagligvarer", "Mad", 6000, "monthly"),
-    ("Indboforsikring", "Forsikring", 1800, "yearly"),
-    ("Ulykkesforsikring", "Forsikring", 1200, "yearly"),
-    ("Tandlægeforsikring", "Forsikring", 600, "quarterly"),  # Example: quarterly dental
-    ("Netflix", "Abonnementer", 129, "monthly"),
-    ("Spotify", "Abonnementer", 99, "monthly"),
-    ("Fitness", "Abonnementer", 299, "monthly"),
-    ("Opsparing", "Opsparing", 3000, "monthly"),
-    ("Telefon", "Andet", 199, "monthly"),
+    # (name, category, amount, frequency, months)
+    # months=None means spread evenly; months=[...] means pay in those specific months
+    ("Husleje/boliglån", "Bolig", 12000, "monthly", None),
+    ("Ejendomsskat", "Bolig", 18000, "yearly", [1, 7]),  # Paid in Jan & Jul
+    ("Varme", "Forbrug", 800, "monthly", None),
+    ("El", "Forbrug", 600, "monthly", None),
+    ("Vand", "Forbrug", 2400, "quarterly", [3, 6, 9, 12]),  # Quarterly water bill
+    ("Internet", "Forbrug", 299, "monthly", None),
+    ("Bil - lån", "Transport", 2500, "monthly", None),
+    ("Benzin", "Transport", 1500, "monthly", None),
+    ("Vægtafgift", "Transport", 3600, "yearly", [4]),  # Paid in April
+    ("Bilforsikring", "Transport", 6000, "yearly", [2]),  # Paid in February
+    ("Bilservice", "Transport", 4500, "semi-annual", [3, 9]),  # Service in Mar & Sep
+    ("Institution", "Børn", 3200, "monthly", None),
+    ("Fritidsaktiviteter", "Børn", 2400, "semi-annual", [1, 8]),  # Season start Jan & Aug
+    ("Dagligvarer", "Mad", 6000, "monthly", None),
+    ("Indboforsikring", "Forsikring", 1800, "yearly", [6]),  # Paid in June
+    ("Ulykkesforsikring", "Forsikring", 1200, "yearly", [6]),  # Paid in June
+    ("Tandlægeforsikring", "Forsikring", 600, "quarterly", [3, 6, 9, 12]),  # Quarterly dental
+    ("Netflix", "Abonnementer", 129, "monthly", None),
+    ("Spotify", "Abonnementer", 99, "monthly", None),
+    ("Fitness", "Abonnementer", 299, "monthly", None),
+    ("Opsparing", "Opsparing", 3000, "monthly", None),
+    ("Telefon", "Andet", 199, "monthly", None),
 ]
 
 # Advanced demo data - adds account assignments and extra income
 DEMO_INCOME_ADVANCED = [
-    # (person, amount, frequency)
-    ("Person 1", 28000, "monthly"),
-    ("Person 2", 22000, "monthly"),
-    ("Bonus", 30000, "semi-annual"),
-    ("Børnepenge", 6264, "quarterly"),
+    # (person, amount, frequency, months)
+    ("Person 1", 28000, "monthly", None),
+    ("Person 2", 22000, "monthly", None),
+    ("Bonus", 30000, "semi-annual", [6, 12]),
+    ("Børnepenge", 6264, "quarterly", [1, 4, 7, 10]),
 ]
 
 DEMO_EXPENSES_ADVANCED = [
-    # (name, category, amount, frequency, account)
-    ("Husleje/boliglån", "Bolig", 12000, "monthly", "Budgetkonto"),
-    ("Ejendomsskat", "Bolig", 18000, "yearly", "Budgetkonto"),
-    ("Varme", "Forbrug", 800, "monthly", "Budgetkonto"),
-    ("El", "Forbrug", 600, "monthly", "Budgetkonto"),
-    ("Vand", "Forbrug", 2400, "quarterly", "Budgetkonto"),
-    ("Internet", "Forbrug", 299, "monthly", "Budgetkonto"),
-    ("Bil - lån", "Transport", 2500, "monthly", "Budgetkonto"),
-    ("Benzin", "Transport", 1500, "monthly", "Forbrugskonto"),
-    ("Vægtafgift", "Transport", 3600, "yearly", "Budgetkonto"),
-    ("Bilforsikring", "Transport", 6000, "yearly", "Budgetkonto"),
-    ("Bilservice", "Transport", 4500, "semi-annual", "Budgetkonto"),
-    ("Institution", "Børn", 3200, "monthly", "Budgetkonto"),
-    ("Fritidsaktiviteter", "Børn", 400, "monthly", "Forbrugskonto"),
-    ("Dagligvarer", "Mad", 6000, "monthly", "Forbrugskonto"),
-    ("Indboforsikring", "Forsikring", 1800, "yearly", "Budgetkonto"),
-    ("Ulykkesforsikring", "Forsikring", 1200, "yearly", "Budgetkonto"),
-    ("Tandlægeforsikring", "Forsikring", 600, "quarterly", "Budgetkonto"),
-    ("Netflix", "Abonnementer", 129, "monthly", "Person 1 konto"),
-    ("Spotify", "Abonnementer", 99, "monthly", "Person 2 konto"),
-    ("Fitness", "Abonnementer", 299, "monthly", "Person 1 konto"),
-    ("Opsparing", "Opsparing", 3000, "monthly", "Opsparingskonto"),
-    ("Telefon", "Andet", 199, "monthly", "Person 2 konto"),
+    # (name, category, amount, frequency, account, months)
+    ("Husleje/boliglån", "Bolig", 12000, "monthly", "Budgetkonto", None),
+    ("Ejendomsskat", "Bolig", 18000, "yearly", "Budgetkonto", [1, 7]),
+    ("Varme", "Forbrug", 800, "monthly", "Budgetkonto", None),
+    ("El", "Forbrug", 600, "monthly", "Budgetkonto", None),
+    ("Vand", "Forbrug", 2400, "quarterly", "Budgetkonto", [3, 6, 9, 12]),
+    ("Internet", "Forbrug", 299, "monthly", "Budgetkonto", None),
+    ("Bil - lån", "Transport", 2500, "monthly", "Budgetkonto", None),
+    ("Benzin", "Transport", 1500, "monthly", "Forbrugskonto", None),
+    ("Vægtafgift", "Transport", 3600, "yearly", "Budgetkonto", [4]),
+    ("Bilforsikring", "Transport", 6000, "yearly", "Budgetkonto", [2]),
+    ("Bilservice", "Transport", 4500, "semi-annual", "Budgetkonto", [3, 9]),
+    ("Institution", "Børn", 3200, "monthly", "Budgetkonto", None),
+    ("Fritidsaktiviteter", "Børn", 2400, "semi-annual", "Forbrugskonto", [1, 8]),
+    ("Dagligvarer", "Mad", 6000, "monthly", "Forbrugskonto", None),
+    ("Indboforsikring", "Forsikring", 1800, "yearly", "Budgetkonto", [6]),
+    ("Ulykkesforsikring", "Forsikring", 1200, "yearly", "Budgetkonto", [6]),
+    ("Tandlægeforsikring", "Forsikring", 600, "quarterly", "Budgetkonto", [3, 6, 9, 12]),
+    ("Netflix", "Abonnementer", 129, "monthly", "Person 1 konto", None),
+    ("Spotify", "Abonnementer", 99, "monthly", "Person 2 konto", None),
+    ("Fitness", "Abonnementer", 299, "monthly", "Person 1 konto", None),
+    ("Opsparing", "Opsparing", 3000, "monthly", "Opsparingskonto", None),
+    ("Telefon", "Andet", 199, "monthly", "Person 2 konto", None),
 ]
 
 
@@ -137,6 +139,7 @@ class Income:
     person: str
     amount: float
     frequency: str = 'monthly'  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
+    months: Optional[list[int]] = None  # Which months this income falls in (1-12)
 
     @property
     def monthly_amount(self) -> float:
@@ -144,6 +147,19 @@ class Income:
         divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
         result = self.amount / divisors.get(self.frequency, 1)
         return round(result, 2)
+
+    def get_monthly_amounts(self) -> dict[int, float]:
+        """Return a dict mapping month (1-12) to the amount for that month."""
+        result = {m: 0.0 for m in range(1, 13)}
+        if self.frequency == 'monthly' or self.months is None:
+            monthly = self.monthly_amount
+            for m in range(1, 13):
+                result[m] = monthly
+        else:
+            per_month = round(self.amount / len(self.months), 2)
+            for m in self.months:
+                result[m] = per_month
+        return result
 
 
 @dataclass
@@ -155,6 +171,7 @@ class Expense:
     amount: float
     frequency: str  # 'monthly', 'quarterly', 'semi-annual', or 'yearly'
     account: Optional[str] = None  # Optional bank account assignment
+    months: Optional[list[int]] = None  # Which months this expense falls in (1-12)
 
     @property
     def monthly_amount(self) -> float:
@@ -162,6 +179,28 @@ class Expense:
         divisors = {'monthly': 1, 'quarterly': 3, 'semi-annual': 6, 'yearly': 12}
         result = self.amount / divisors.get(self.frequency, 1)
         return round(result, 2)
+
+    def get_monthly_amounts(self) -> dict[int, float]:
+        """Return a dict mapping month (1-12) to the amount for that month.
+
+        If months is set, the total amount is split equally across those months.
+        If months is None (default), the monthly_amount is spread evenly across all 12 months.
+        Monthly expenses always spread evenly regardless of months setting.
+        """
+        result = {m: 0.0 for m in range(1, 13)}
+
+        if self.frequency == 'monthly' or self.months is None:
+            # Spread evenly across all 12 months
+            monthly = self.monthly_amount
+            for m in range(1, 13):
+                result[m] = monthly
+        else:
+            # Split total amount across specified months
+            per_month = round(self.amount / len(self.months), 2)
+            for m in self.months:
+                result[m] = per_month
+
+        return result
 
 
 @dataclass
@@ -381,6 +420,10 @@ def init_db():
     if "account" not in exp_columns:
         cur.execute("ALTER TABLE expenses ADD COLUMN account TEXT")
 
+    # Migration: Add months column to expenses table
+    if "months" not in exp_columns:
+        cur.execute("ALTER TABLE expenses ADD COLUMN months TEXT")
+
     # Create index for account lookups
     cur.execute("CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id, name)")
 
@@ -481,14 +524,19 @@ def get_all_expenses(user_id: int) -> list[Expense]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, user_id, name, category, amount, frequency, account
+        SELECT id, user_id, name, category, amount, frequency, account, months
         FROM expenses
         WHERE user_id = ?
         ORDER BY category, name
     """, (user_id,))
     rows = cur.fetchall()
     conn.close()
-    return [Expense(**dict(row)) for row in rows]
+    expenses = []
+    for row in rows:
+        d = dict(row)
+        d['months'] = json.loads(d['months']) if d['months'] else None
+        expenses.append(Expense(**d))
+    return expenses
 
 
 def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
@@ -496,22 +544,27 @@ def get_expense_by_id(expense_id: int, user_id: int) -> Optional[Expense]:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, user_id, name, category, amount, frequency, account FROM expenses WHERE id = ? AND user_id = ?",
+        "SELECT id, user_id, name, category, amount, frequency, account, months FROM expenses WHERE id = ? AND user_id = ?",
         (expense_id, user_id)
     )
     row = cur.fetchone()
     conn.close()
-    return Expense(**dict(row)) if row is not None else None
+    if row is None:
+        return None
+    d = dict(row)
+    d['months'] = json.loads(d['months']) if d['months'] else None
+    return Expense(**d)
 
 
-def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None) -> int:
+def add_expense(user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None, months: list[int] = None) -> int:
     """Add a new expense for a user. Returns the new expense ID."""
     conn = get_connection()
     cur = conn.cursor()
+    months_json = json.dumps(months) if months else None
     cur.execute(
-        """INSERT INTO expenses (user_id, name, category, amount, frequency, account)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (user_id, name, category, amount, frequency, account)
+        """INSERT INTO expenses (user_id, name, category, amount, frequency, account, months)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (user_id, name, category, amount, frequency, account, months_json)
     )
     expense_id = cur.lastrowid
     conn.commit()
@@ -519,15 +572,16 @@ def add_expense(user_id: int, name: str, category: str, amount: float, frequency
     return expense_id
 
 
-def update_expense(expense_id: int, user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None):
+def update_expense(expense_id: int, user_id: int, name: str, category: str, amount: float, frequency: str, account: str = None, months: list[int] = None):
     """Update an existing expense for a user."""
     conn = get_connection()
     cur = conn.cursor()
+    months_json = json.dumps(months) if months else None
     cur.execute(
         """UPDATE expenses
-           SET name = ?, category = ?, amount = ?, frequency = ?, account = ?
+           SET name = ?, category = ?, amount = ?, frequency = ?, account = ?, months = ?
            WHERE id = ? AND user_id = ?""",
-        (name, category, amount, frequency, account, expense_id, user_id)
+        (name, category, amount, frequency, account, months_json, expense_id, user_id)
     )
     conn.commit()
     conn.close()
@@ -1123,11 +1177,70 @@ def mark_reset_token_used(token_id: int):
 # Demo data functions (returns in-memory data, not from database)
 # =============================================================================
 
+def get_yearly_overview(user_id: int) -> dict:
+    """Calculate yearly overview with monthly breakdown.
+
+    Returns dict with:
+        categories: {category_name: {1: amount, 2: amount, ..., 12: amount}}
+        totals: {1: total, ..., 12: total}
+        income: {1: amount, ..., 12: amount}
+        balance: {1: amount, ..., 12: amount}
+        year_total: float (total expenses for the year)
+    """
+    expenses = get_all_expenses(user_id)
+    income_entries = get_all_income(user_id)
+
+    # Build category breakdown
+    categories: dict[str, dict[int, float]] = {}
+    for exp in expenses:
+        if exp.category not in categories:
+            categories[exp.category] = {m: 0.0 for m in range(1, 13)}
+        monthly = exp.get_monthly_amounts()
+        for m in range(1, 13):
+            categories[exp.category][m] += monthly[m]
+
+    # Round all values
+    for cat in categories:
+        for m in range(1, 13):
+            categories[cat][m] = round(categories[cat][m], 2)
+
+    # Totals per month
+    totals = {m: 0.0 for m in range(1, 13)}
+    for cat_amounts in categories.values():
+        for m in range(1, 13):
+            totals[m] += cat_amounts[m]
+    for m in range(1, 13):
+        totals[m] = round(totals[m], 2)
+
+    # Income per month (spread equally, no months support)
+    income = {m: 0.0 for m in range(1, 13)}
+    for inc in income_entries:
+        monthly_amt = inc.monthly_amount
+        for m in range(1, 13):
+            income[m] += monthly_amt
+    for m in range(1, 13):
+        income[m] = round(income[m], 2)
+
+    # Balance
+    balance = {m: round(income[m] - totals[m], 2) for m in range(1, 13)}
+
+    # Year total
+    year_total = round(sum(totals.values()), 2)
+
+    return {
+        'categories': categories,
+        'totals': totals,
+        'income': income,
+        'balance': balance,
+        'year_total': year_total,
+    }
+
+
 def get_demo_income(advanced: bool = False) -> list[Income]:
     """Get demo income data."""
     source = DEMO_INCOME_ADVANCED if advanced else DEMO_INCOME
-    return [Income(id=i+1, user_id=0, person=person, amount=amount, frequency=freq)
-            for i, (person, amount, freq) in enumerate(source)]
+    return [Income(id=i+1, user_id=0, person=person, amount=amount, frequency=freq, months=months)
+            for i, (person, amount, freq, months) in enumerate(source)]
 
 
 def get_demo_total_income(advanced: bool = False) -> float:
@@ -1138,10 +1251,10 @@ def get_demo_total_income(advanced: bool = False) -> float:
 def get_demo_expenses(advanced: bool = False) -> list[Expense]:
     """Get demo expense data."""
     if advanced:
-        return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=acct)
-                for i, (name, cat, amount, freq, acct) in enumerate(DEMO_EXPENSES_ADVANCED)]
-    return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=None)
-            for i, (name, cat, amount, freq) in enumerate(DEMO_EXPENSES)]
+        return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=acct, months=months)
+                for i, (name, cat, amount, freq, acct, months) in enumerate(DEMO_EXPENSES_ADVANCED)]
+    return [Expense(id=i+1, user_id=0, name=name, category=cat, amount=amount, frequency=freq, account=None, months=months)
+            for i, (name, cat, amount, freq, months) in enumerate(DEMO_EXPENSES)]
 
 
 def get_demo_expenses_by_category(advanced: bool = False) -> dict[str, list[Expense]]:
@@ -1191,6 +1304,39 @@ def get_demo_accounts(advanced: bool = False) -> list[Account]:
         return []
     names = ["Budgetkonto", "Forbrugskonto", "Person 1 konto", "Person 2 konto", "Opsparingskonto"]
     return [Account(id=i+1, name=name) for i, name in enumerate(names)]
+
+
+def get_yearly_overview_demo(advanced: bool = False) -> dict:
+    """Get yearly overview for demo mode."""
+    demo_expenses = get_demo_expenses(advanced)
+    demo_income = get_demo_income(advanced)
+
+    categories: dict[str, dict[int, float]] = {}
+    for exp in demo_expenses:
+        if exp.category not in categories:
+            categories[exp.category] = {m: 0.0 for m in range(1, 13)}
+        monthly = exp.get_monthly_amounts()
+        for m in range(1, 13):
+            categories[exp.category][m] += monthly[m]
+
+    for cat in categories:
+        for m in range(1, 13):
+            categories[cat][m] = round(categories[cat][m], 2)
+
+    totals = {m: round(sum(cat[m] for cat in categories.values()), 2) for m in range(1, 13)}
+
+    income = {m: 0.0 for m in range(1, 13)}
+    for inc in demo_income:
+        monthly = inc.get_monthly_amounts()
+        for m in range(1, 13):
+            income[m] += monthly[m]
+    for m in range(1, 13):
+        income[m] = round(income[m], 2)
+
+    balance = {m: round(income[m] - totals[m], 2) for m in range(1, 13)}
+    year_total = round(sum(totals.values()), 2)
+
+    return {'categories': categories, 'totals': totals, 'income': income, 'balance': balance, 'year_total': year_total}
 
 
 # Initialize database when run directly (for testing/setup)
