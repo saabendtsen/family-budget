@@ -3,6 +3,7 @@
   "short_name": "Budget",
   "description": "Hold styr på familiens økonomi",
   "start_url": "/budget/",
+  "scope": "/budget/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",

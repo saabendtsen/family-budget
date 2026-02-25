@@ -1330,6 +1330,7 @@ class TestStaticFiles:
         assert data["name"] == "Family Budget"
         assert data["display"] == "standalone"
         assert data["start_url"] == "/budget/"
+        assert data["scope"] == "/budget/"
 
     def test_base_html_links_manifest(self, client):
         """All pages should include manifest link in head."""
