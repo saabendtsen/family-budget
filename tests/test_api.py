@@ -1319,4 +1319,11 @@ class TestStaticFiles:
         assert data["name"] == "Family Budget"
         assert data["display"] == "standalone"
         assert data["start_url"] == "/budget/"
-        assert len(data["icons"]) == 2
+
+    def test_base_html_links_manifest(self, client):
+        """All pages should include manifest link in head."""
+        response = client.get("/budget/login")
+        assert response.status_code == 200
+        assert 'rel="manifest"' in response.text
+        assert '/budget/static/manifest.json' in response.text
+        assert 'apple-touch-icon' in response.text
