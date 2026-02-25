@@ -607,16 +607,17 @@ async def dashboard(request: Request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
     user_id = get_user_id(request)
 
     # Get data (demo or real)
     if demo:
-        incomes = db.get_demo_income()
-        total_income = db.get_demo_total_income()
-        total_expenses = db.get_demo_total_expenses()
-        expenses_by_category = db.get_demo_expenses_by_category()
-        category_totals = db.get_demo_category_totals()
-        account_totals = {}
+        incomes = db.get_demo_income(advanced)
+        total_income = db.get_demo_total_income(advanced)
+        total_expenses = db.get_demo_total_expenses(advanced)
+        expenses_by_category = db.get_demo_expenses_by_category(advanced)
+        category_totals = db.get_demo_category_totals(advanced)
+        account_totals = db.get_demo_account_totals(advanced)
     else:
         incomes = db.get_all_income(user_id)
         total_income = db.get_total_income(user_id)
@@ -646,6 +647,7 @@ async def dashboard(request: Request):
             "category_percentages": category_percentages,
             "account_totals": account_totals,
             "demo_mode": demo,
+            "demo_advanced": advanced,
         }
     )
 
@@ -661,16 +663,17 @@ async def income_page(request: Request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
     user_id = get_user_id(request)
 
     if demo:
-        incomes = db.get_demo_income()
+        incomes = db.get_demo_income(advanced)
     else:
         incomes = db.get_all_income(user_id)
 
     return templates.TemplateResponse(
         "income.html",
-        {"request": request, "incomes": incomes, "demo_mode": demo}
+        {"request": request, "incomes": incomes, "demo_mode": demo, "demo_advanced": advanced}
     )
 
 
@@ -728,15 +731,16 @@ async def expenses_page(request: Request):
 
     user_id = get_user_id(request)
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
 
     if demo:
-        expenses = db.get_demo_expenses()
-        expenses_by_category = db.get_demo_expenses_by_category()
-        category_totals = db.get_demo_category_totals()
+        expenses = db.get_demo_expenses(advanced)
+        expenses_by_category = db.get_demo_expenses_by_category(advanced)
+        category_totals = db.get_demo_category_totals(advanced)
         # Use demo user categories (user_id = 0)
         categories = db.get_all_categories(0)
         category_usage = {cat.name: 0 for cat in categories}
-        accounts = []
+        accounts = db.get_demo_accounts(advanced)
     else:
         expenses = db.get_all_expenses(user_id)
         expenses_by_category = db.get_expenses_by_category(user_id)
@@ -756,6 +760,7 @@ async def expenses_page(request: Request):
             "category_usage": category_usage,
             "accounts": accounts,
             "demo_mode": demo,
+            "demo_advanced": advanced,
         }
     )
 
@@ -1308,14 +1313,15 @@ async def chart_data(request: Request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
     user_id = get_user_id(request)
 
     # Get data based on mode
     if demo:
-        category_totals = db.get_demo_category_totals()
-        total_income = db.get_demo_total_income()
-        total_expenses = db.get_demo_total_expenses()
-        expenses = db.get_demo_expenses()
+        category_totals = db.get_demo_category_totals(advanced)
+        total_income = db.get_demo_total_income(advanced)
+        total_expenses = db.get_demo_total_expenses(advanced)
+        expenses = db.get_demo_expenses(advanced)
     else:
         category_totals = db.get_category_totals(user_id)
         total_income = db.get_total_income(user_id)

@@ -1126,3 +1126,53 @@ class TestDemoToggle:
         response = client.get("/budget/demo/toggle", follow_redirects=False)
         assert response.status_code == 303
         assert "/budget/login" in response.headers["location"]
+
+
+class TestAdvancedDemoRoutes:
+    """Tests that advanced mode shows richer data on all routes."""
+
+    def test_dashboard_advanced_shows_accounts(self, client):
+        """Dashboard in advanced mode should show account totals."""
+        client.cookies.set("budget_session", "demo")
+        client.cookies.set("demo_level", "advanced")
+        response = client.get("/budget/")
+        assert "Fælles konto" in response.text
+
+    def test_dashboard_simple_hides_accounts(self, client):
+        """Dashboard in simple mode should not show accounts."""
+        client.cookies.set("budget_session", "demo")
+        response = client.get("/budget/")
+        assert "Fælles konto" not in response.text
+
+    def test_expenses_advanced_shows_accounts(self, client):
+        """Expenses page in advanced mode should show account list."""
+        client.cookies.set("budget_session", "demo")
+        client.cookies.set("demo_level", "advanced")
+        response = client.get("/budget/expenses")
+        assert "Fælles konto" in response.text
+
+    def test_income_advanced_shows_extra_source(self, client):
+        """Income page in advanced mode should show Børnepenge as a value."""
+        client.cookies.set("budget_session", "demo")
+        client.cookies.set("demo_level", "advanced")
+        response = client.get("/budget/income")
+        # Check it appears as a form value, not just a placeholder
+        assert 'value="Børnepenge"' in response.text
+
+    def test_income_simple_no_extra_source(self, client):
+        """Income page in simple mode should not have Børnepenge as a value."""
+        client.cookies.set("budget_session", "demo")
+        response = client.get("/budget/income")
+        assert 'value="Børnepenge"' not in response.text
+
+    def test_chart_data_advanced_has_higher_income(self, client):
+        """Chart API in advanced mode should have higher total income."""
+        client.cookies.set("budget_session", "demo")
+        # Simple mode
+        simple_resp = client.get("/budget/api/chart-data")
+        simple_data = simple_resp.json()
+        # Advanced mode
+        client.cookies.set("demo_level", "advanced")
+        adv_resp = client.get("/budget/api/chart-data")
+        adv_data = adv_resp.json()
+        assert adv_data["total_income"] > simple_data["total_income"]

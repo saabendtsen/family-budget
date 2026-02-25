@@ -1185,6 +1185,14 @@ def get_demo_account_totals(advanced: bool = False) -> dict[str, float]:
     return totals
 
 
+def get_demo_accounts(advanced: bool = False) -> list[Account]:
+    """Get demo accounts for the accounts dropdown."""
+    if not advanced:
+        return []
+    names = ["Fælles konto", "Person 1 konto", "Person 2 konto", "Opsparingskonto"]
+    return [Account(id=i+1, name=name) for i, name in enumerate(names)]
+
+
 # Initialize database when run directly (for testing/setup)
 # For production, api.py calls init_db() explicitly at startup
 if __name__ == "__main__":
