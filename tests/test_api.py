@@ -1298,6 +1298,7 @@ class TestYearlyOverviewRoute:
         """GET /budget/yearly should return 200."""
         response = authenticated_client.get("/budget/yearly")
         assert response.status_code == 200
+        assert "Årsoverblik" in response.text
 
 
 class TestStaticFiles:

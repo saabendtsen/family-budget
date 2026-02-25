@@ -134,7 +134,9 @@
     };
 
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { closeInstallGuide(); }
+      if (e.key === 'Escape' && !document.getElementById('install-guide-modal').classList.contains('hidden')) {
+        closeInstallGuide();
+      }
     });
   })();
 </script>
