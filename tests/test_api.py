@@ -1094,3 +1094,35 @@ class TestAdvancedDemoData:
         """Simple demo should return empty account totals."""
         totals = db_module.get_demo_account_totals(advanced=False)
         assert len(totals) == 0
+
+
+class TestDemoToggle:
+    """Tests for demo simple/advanced toggle."""
+
+    def test_is_demo_advanced_defaults_to_false(self, client):
+        """Demo mode should default to simple (not advanced)."""
+        client.cookies.set("budget_session", "demo")
+        response = client.get("/budget/")
+        # Should not have account totals in simple mode
+        assert "Fælles konto" not in response.text
+
+    def test_toggle_sets_advanced_cookie(self, client):
+        """Toggle endpoint should set demo_level=advanced cookie."""
+        client.cookies.set("budget_session", "demo")
+        response = client.get("/budget/demo/toggle", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.cookies.get("demo_level") == "advanced"
+
+    def test_toggle_flips_back_to_simple(self, client):
+        """Toggle should flip advanced back to simple."""
+        client.cookies.set("budget_session", "demo")
+        client.cookies.set("demo_level", "advanced")
+        response = client.get("/budget/demo/toggle", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.cookies.get("demo_level") == "simple"
+
+    def test_toggle_requires_demo_mode(self, client):
+        """Toggle should redirect to login if not in demo mode."""
+        response = client.get("/budget/demo/toggle", follow_redirects=False)
+        assert response.status_code == 303
+        assert "/budget/login" in response.headers["location"]

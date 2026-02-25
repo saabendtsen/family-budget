@@ -257,6 +257,11 @@ def is_demo_mode(request: Request) -> bool:
     return request.cookies.get("budget_session") == DEMO_SESSION_ID
 
 
+def is_demo_advanced(request: Request) -> bool:
+    """Check if demo mode is set to advanced view."""
+    return is_demo_mode(request) and request.cookies.get("demo_level") == "advanced"
+
+
 @app.get("/budget/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Show login page."""
@@ -548,6 +553,29 @@ async def demo_mode(request: Request):
         secure=True,       # Only send over HTTPS
         samesite="lax",
         max_age=3600  # Demo expires after 1 hour
+    )
+    return response
+
+
+@app.get("/budget/demo/toggle")
+async def demo_toggle(request: Request):
+    """Toggle between simple and advanced demo mode."""
+    if not is_demo_mode(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    current = request.cookies.get("demo_level", "simple")
+    new_level = "simple" if current == "advanced" else "advanced"
+
+    # Redirect back to referring page, or dashboard
+    referer = request.headers.get("referer", "/budget/")
+    response = RedirectResponse(url=referer, status_code=303)
+    response.set_cookie(
+        key="demo_level",
+        value=new_level,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=3600,
     )
     return response
 
