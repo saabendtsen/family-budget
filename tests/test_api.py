@@ -366,6 +366,17 @@ class TestPrivacyPolicy:
         assert response.status_code == 200
 
 
+class TestOmPage:
+    """Tests for the Om page."""
+
+    def test_om_page_has_install_button(self, authenticated_client):
+        """Om page should have install guide trigger."""
+        response = authenticated_client.get("/budget/om")
+        assert response.status_code == 200
+        assert 'openInstallGuide()' in response.text
+        assert 'Installer som app' in response.text
+
+
 class TestDashboard:
     """Tests for dashboard functionality."""
 
