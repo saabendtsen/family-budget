@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 import httpx
@@ -269,6 +270,11 @@ def get_user_id(request: Request) -> int | None:
 def is_demo_mode(request: Request) -> bool:
     """Check if request is in demo mode (read-only)."""
     return request.cookies.get("budget_session") == DEMO_SESSION_ID
+
+
+def is_demo_advanced(request: Request) -> bool:
+    """Check if demo mode is set to advanced view."""
+    return is_demo_mode(request) and request.cookies.get("demo_level") == "advanced"
 
 
 @app.get("/budget/login", response_class=HTMLResponse)
@@ -566,6 +572,32 @@ async def demo_mode(request: Request):
     return response
 
 
+@app.get("/budget/demo/toggle")
+async def demo_toggle(request: Request):
+    """Toggle between simple and advanced demo mode."""
+    if not is_demo_mode(request):
+        return RedirectResponse(url="/budget/login", status_code=303)
+
+    current = request.cookies.get("demo_level", "simple")
+    new_level = "simple" if current == "advanced" else "advanced"
+
+    # Redirect back to referring page, or dashboard (validate to prevent open redirect)
+    referer = request.headers.get("referer", "/budget/")
+    parsed = urlparse(referer)
+    if parsed.scheme or parsed.netloc:
+        referer = "/budget/"
+    response = RedirectResponse(url=referer, status_code=303)
+    response.set_cookie(
+        key="demo_level",
+        value=new_level,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=3600,
+    )
+    return response
+
+
 @app.get("/budget/logout")
 async def logout(request: Request):
     """Logout and clear session."""
@@ -578,6 +610,7 @@ async def logout(request: Request):
 
     response = RedirectResponse(url="/budget/login", status_code=303)
     response.delete_cookie("budget_session")
+    response.delete_cookie("demo_level")
     return response
 
 
@@ -593,17 +626,18 @@ async def dashboard(request: Request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
     user_id = get_user_id(request)
 
     # Get data (demo or real)
     if demo:
-        incomes = db.get_demo_income()
-        total_income = db.get_demo_total_income()
-        total_expenses = db.get_demo_total_expenses()
-        expenses_by_category = db.get_demo_expenses_by_category()
-        category_totals = db.get_demo_category_totals()
-        account_totals = {}
-        yearly_overview = db.get_yearly_overview_demo()
+        incomes = db.get_demo_income(advanced)
+        total_income = db.get_demo_total_income(advanced)
+        total_expenses = db.get_demo_total_expenses(advanced)
+        expenses_by_category = db.get_demo_expenses_by_category(advanced)
+        category_totals = db.get_demo_category_totals(advanced)
+        account_totals = db.get_demo_account_totals(advanced)
+        yearly_overview = db.get_yearly_overview_demo(advanced)
     else:
         incomes = db.get_all_income(user_id)
         total_income = db.get_total_income(user_id)
@@ -635,6 +669,7 @@ async def dashboard(request: Request):
             "account_totals": account_totals,
             "yearly_overview": yearly_overview,
             "demo_mode": demo,
+            "demo_advanced": advanced,
         }
     )
 
@@ -650,16 +685,17 @@ async def income_page(request: Request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
     user_id = get_user_id(request)
 
     if demo:
-        incomes = db.get_demo_income()
+        incomes = db.get_demo_income(advanced)
     else:
         incomes = db.get_all_income(user_id)
 
     return templates.TemplateResponse(
         "income.html",
-        {"request": request, "incomes": incomes, "demo_mode": demo}
+        {"request": request, "incomes": incomes, "demo_mode": demo, "demo_advanced": advanced}
     )
 
 
@@ -717,15 +753,16 @@ async def expenses_page(request: Request):
 
     user_id = get_user_id(request)
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
 
     if demo:
-        expenses = db.get_demo_expenses()
-        expenses_by_category = db.get_demo_expenses_by_category()
-        category_totals = db.get_demo_category_totals()
+        expenses = db.get_demo_expenses(advanced)
+        expenses_by_category = db.get_demo_expenses_by_category(advanced)
+        category_totals = db.get_demo_category_totals(advanced)
         # Use demo user categories (user_id = 0)
         categories = db.get_all_categories(0)
         category_usage = {cat.name: 0 for cat in categories}
-        accounts = []
+        accounts = db.get_demo_accounts(advanced)
     else:
         expenses = db.get_all_expenses(user_id)
         expenses_by_category = db.get_expenses_by_category(user_id)
@@ -745,6 +782,7 @@ async def expenses_page(request: Request):
             "category_usage": category_usage,
             "accounts": accounts,
             "demo_mode": demo,
+            "demo_advanced": advanced,
         }
     )
 
@@ -919,6 +957,7 @@ async def categories_page(request: Request):
             "categories": categories,
             "category_usage": category_usage,
             "demo_mode": demo,
+            "demo_advanced": is_demo_advanced(request),
         }
     )
 
@@ -1033,6 +1072,7 @@ async def accounts_page(request: Request):
             "accounts": accounts,
             "account_usage": account_usage,
             "demo_mode": demo,
+            "demo_advanced": is_demo_advanced(request),
         }
     )
 
@@ -1144,6 +1184,7 @@ async def about_page(request: Request):
         {
             "request": request,
             "demo_mode": demo_mode,
+            "demo_advanced": is_demo_advanced(request),
             "show_nav": logged_in or demo_mode,
             "donation_links": DONATION_LINKS if not demo_mode else {},
         }
@@ -1207,7 +1248,7 @@ async def feedback_page(request: Request):
 
     return templates.TemplateResponse(
         "feedback.html",
-        {"request": request, "demo_mode": is_demo_mode(request)}
+        {"request": request, "demo_mode": is_demo_mode(request), "demo_advanced": is_demo_advanced(request)}
     )
 
 
@@ -1232,7 +1273,7 @@ async def submit_feedback(
         # Pretend success to fool bots
         return templates.TemplateResponse(
             "feedback.html",
-            {"request": request, "success": True, "demo_mode": demo}
+            {"request": request, "success": True, "demo_mode": demo, "demo_advanced": is_demo_advanced(request)}
         )
 
     # Rate limiting
@@ -1242,7 +1283,8 @@ async def submit_feedback(
             {
                 "request": request,
                 "error": "For mange henvendelser. Prøv igen senere.",
-                "demo_mode": demo
+                "demo_mode": demo,
+                "demo_advanced": is_demo_advanced(request),
             }
         )
 
@@ -1253,7 +1295,8 @@ async def submit_feedback(
             {
                 "request": request,
                 "error": "Beskrivelsen skal være mindst 10 tegn.",
-                "demo_mode": demo
+                "demo_mode": demo,
+                "demo_advanced": is_demo_advanced(request),
             }
         )
 
@@ -1299,7 +1342,8 @@ async def submit_feedback(
                 {
                     "request": request,
                     "error": "Kunne ikke sende feedback. Prøv igen senere.",
-                    "demo_mode": demo
+                    "demo_mode": demo,
+                    "demo_advanced": is_demo_advanced(request),
                 }
             )
     else:
@@ -1310,7 +1354,7 @@ async def submit_feedback(
 
     return templates.TemplateResponse(
         "feedback.html",
-        {"request": request, "success": True, "demo_mode": demo}
+        {"request": request, "success": True, "demo_mode": demo, "demo_advanced": is_demo_advanced(request)}
     )
 
 
@@ -1336,14 +1380,15 @@ async def chart_data(request: Request):
         return RedirectResponse(url="/budget/login", status_code=303)
 
     demo = is_demo_mode(request)
+    advanced = is_demo_advanced(request)
     user_id = get_user_id(request)
 
     # Get data based on mode
     if demo:
-        category_totals = db.get_demo_category_totals()
-        total_income = db.get_demo_total_income()
-        total_expenses = db.get_demo_total_expenses()
-        expenses = db.get_demo_expenses()
+        category_totals = db.get_demo_category_totals(advanced)
+        total_income = db.get_demo_total_income(advanced)
+        total_expenses = db.get_demo_total_expenses(advanced)
+        expenses = db.get_demo_expenses(advanced)
     else:
         category_totals = db.get_category_totals(user_id)
         total_income = db.get_total_income(user_id)
