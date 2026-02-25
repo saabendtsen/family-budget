@@ -32,10 +32,24 @@
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
     {% if demo_mode %}
     <!-- Demo mode banner -->
-    <div class="bg-amber-500 text-amber-900 px-4 py-2 text-center text-sm font-medium">
-        <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-        Demo-tilstand (kun visning)
-        <a href="/budget/register" class="underline ml-2 hover:text-amber-800">Opret konto</a>
+    <div class="bg-amber-500 text-amber-900 px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-3 flex-wrap">
+        <span class="flex items-center gap-1">
+            <i data-lucide="info" class="w-4 h-4 inline"></i>
+            Demo-tilstand (kun visning)
+        </span>
+        <span class="inline-flex rounded-lg overflow-hidden border border-amber-600">
+            <a href="/budget/demo/toggle"
+               class="px-3 py-0.5 text-xs font-semibold transition-colors
+                      {% if not demo_advanced %}bg-amber-900 text-amber-100{% else %}hover:bg-amber-400{% endif %}">
+                Simpel
+            </a>
+            <a href="/budget/demo/toggle"
+               class="px-3 py-0.5 text-xs font-semibold transition-colors
+                      {% if demo_advanced %}bg-amber-900 text-amber-100{% else %}hover:bg-amber-400{% endif %}">
+                Avanceret
+            </a>
+        </span>
+        <a href="/budget/register" class="underline hover:text-amber-800">Opret konto</a>
     </div>
     {% endif %}
 

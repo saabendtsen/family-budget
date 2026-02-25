@@ -74,3 +74,46 @@ class TestDemoDataIntegrity:
         page.goto(f"{base_url}/budget/demo")
         page.wait_for_url(f"{base_url}/budget/")
         expect(page.get_by_text("55.000")).to_be_visible()
+
+
+class TestDemoToggle:
+    """Tests for simple/advanced demo toggle."""
+
+    def test_toggle_visible_in_demo_banner(self, page: Page, base_url: str):
+        """Toggle should be visible in demo banner."""
+        page.goto(f"{base_url}/budget/demo")
+        page.wait_for_url(f"{base_url}/budget/")
+        expect(page.get_by_text("Avanceret")).to_be_visible()
+
+    def test_toggle_switches_to_advanced(self, page: Page, base_url: str):
+        """Clicking toggle should switch to advanced mode."""
+        page.goto(f"{base_url}/budget/demo")
+        page.wait_for_url(f"{base_url}/budget/")
+        page.get_by_role("link", name="Avanceret").click()
+        page.wait_for_load_state("networkidle")
+        # In advanced mode, accounts should appear
+        expect(page.get_by_text("Fælles konto")).to_be_visible()
+
+    def test_toggle_switches_back_to_simple(self, page: Page, base_url: str):
+        """Clicking toggle again should switch back to simple."""
+        page.goto(f"{base_url}/budget/demo")
+        page.wait_for_url(f"{base_url}/budget/")
+        # Switch to advanced
+        page.get_by_role("link", name="Avanceret").click()
+        page.wait_for_load_state("networkidle")
+        # Switch back to simple
+        page.get_by_role("link", name="Simpel").click()
+        page.wait_for_load_state("networkidle")
+        # Accounts should be gone
+        expect(page.get_by_text("Fælles konto")).not_to_be_visible()
+
+    def test_advanced_persists_across_pages(self, page: Page, base_url: str):
+        """Advanced mode should persist when navigating to other pages."""
+        page.goto(f"{base_url}/budget/demo")
+        page.wait_for_url(f"{base_url}/budget/")
+        page.get_by_role("link", name="Avanceret").click()
+        page.wait_for_load_state("networkidle")
+        # Navigate to income page
+        page.goto(f"{base_url}/budget/income")
+        # Should still be in advanced mode — extra income visible (value in input field)
+        expect(page.locator("input[value='Børnepenge']")).to_be_visible()

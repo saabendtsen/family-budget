@@ -896,6 +896,7 @@ async def categories_page(request: Request):
             "categories": categories,
             "category_usage": category_usage,
             "demo_mode": demo,
+            "demo_advanced": is_demo_advanced(request),
         }
     )
 
@@ -1010,6 +1011,7 @@ async def accounts_page(request: Request):
             "accounts": accounts,
             "account_usage": account_usage,
             "demo_mode": demo,
+            "demo_advanced": is_demo_advanced(request),
         }
     )
 
@@ -1121,6 +1123,7 @@ async def about_page(request: Request):
         {
             "request": request,
             "demo_mode": demo_mode,
+            "demo_advanced": is_demo_advanced(request),
             "show_nav": logged_in or demo_mode,
             "donation_links": DONATION_LINKS if not demo_mode else {},
         }
@@ -1184,7 +1187,7 @@ async def feedback_page(request: Request):
 
     return templates.TemplateResponse(
         "feedback.html",
-        {"request": request, "demo_mode": is_demo_mode(request)}
+        {"request": request, "demo_mode": is_demo_mode(request), "demo_advanced": is_demo_advanced(request)}
     )
 
 
@@ -1209,7 +1212,7 @@ async def submit_feedback(
         # Pretend success to fool bots
         return templates.TemplateResponse(
             "feedback.html",
-            {"request": request, "success": True, "demo_mode": demo}
+            {"request": request, "success": True, "demo_mode": demo, "demo_advanced": is_demo_advanced(request)}
         )
 
     # Rate limiting
@@ -1219,7 +1222,8 @@ async def submit_feedback(
             {
                 "request": request,
                 "error": "For mange henvendelser. Prøv igen senere.",
-                "demo_mode": demo
+                "demo_mode": demo,
+                "demo_advanced": is_demo_advanced(request),
             }
         )
 
@@ -1230,7 +1234,8 @@ async def submit_feedback(
             {
                 "request": request,
                 "error": "Beskrivelsen skal være mindst 10 tegn.",
-                "demo_mode": demo
+                "demo_mode": demo,
+                "demo_advanced": is_demo_advanced(request),
             }
         )
 
@@ -1276,7 +1281,8 @@ async def submit_feedback(
                 {
                     "request": request,
                     "error": "Kunne ikke sende feedback. Prøv igen senere.",
-                    "demo_mode": demo
+                    "demo_mode": demo,
+                    "demo_advanced": is_demo_advanced(request),
                 }
             )
     else:
@@ -1287,7 +1293,7 @@ async def submit_feedback(
 
     return templates.TemplateResponse(
         "feedback.html",
-        {"request": request, "success": True, "demo_mode": demo}
+        {"request": request, "success": True, "demo_mode": demo, "demo_advanced": is_demo_advanced(request)}
     )
 
 
